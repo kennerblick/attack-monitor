@@ -1,0 +1,38 @@
+[DEFAULT]
+bantime  = 3600
+findtime = 600
+maxretry = 4
+banaction = iptables-multiport
+
+[sshd]
+enabled  = true
+port     = 22022
+filter   = sshd
+logpath  = /var/log/auth.log
+maxretry = 4
+bantime  = 7200
+
+[nginx-botsearch]
+enabled  = true
+port     = http,https
+filter   = nginx-botsearch
+logpath  = /var/log/nginx/access.log
+maxretry = 3
+findtime = 120
+bantime  = 86400
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 3
+bantime  = 3600
+
+[nginx-limit-req]
+enabled  = true
+port     = http,https
+filter   = nginx-req-limit
+logpath  = /var/log/nginx/error.log
+maxretry = 5
+findtime = 60
+bantime  = 7200

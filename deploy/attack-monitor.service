@@ -1,0 +1,13 @@
+[Unit]
+Description=3lis.de Live Attack Monitor API
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/attack-monitor/server.py
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
