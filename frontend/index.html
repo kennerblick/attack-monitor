@@ -253,6 +253,16 @@
     text-align: right;
     text-transform: uppercase;
   }
+  .feed-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    padding: 28px 8px;
+    text-align: center;
+  }
   .status-blocked { color: var(--ok); }
   .status-dropped { color: var(--warn); }
   .status-rate { color: var(--accent); }
@@ -310,7 +320,9 @@
 
   <div class="panel">
     <h2>⚡ Live-Feed <span style="font-size:0.7rem;color:var(--muted);font-weight:400">(neueste zuerst)</span></h2>
-    <div id="feed"></div>
+    <div id="feed">
+      <div id="feed-empty" class="feed-empty"><span class="live-dot"></span>Warte auf Live-Daten …</div>
+    </div>
   </div>
 </div>
 
@@ -400,6 +412,11 @@ let timelineIdx = 0;
 
 const feed = document.getElementById('feed');
 const MAX_FEED = 40;
+
+function clearFeedEmptyState() {
+  const el = document.getElementById('feed-empty');
+  if (el) el.remove();
+}
 
 // ============================================================
 // World map (Leaflet, dunkles Kachel-Theme)
@@ -603,6 +620,7 @@ function spawnAttack() {
     <div class="atk-type">${type.name}</div>
     <div class="atk-status ${status.cls}">${status.s}</div>
   `;
+  clearFeedEmptyState();
   feed.prepend(row);
   while (feed.children.length > MAX_FEED) feed.removeChild(feed.lastChild);
 
@@ -652,6 +670,7 @@ function addAttackFromApi(a) {
     <div class="atk-type">${a.type}</div>
     <div class="atk-status status-blocked">LIVE</div>
   `;
+  clearFeedEmptyState();
   feed.prepend(row);
   while (feed.children.length > MAX_FEED) feed.removeChild(feed.lastChild);
 

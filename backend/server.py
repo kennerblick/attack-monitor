@@ -177,9 +177,26 @@ def parse_line(line, source):
             STATS[typ] += 1
             break
 
+def seed_history(name, path, tail_bytes=300_000):
+    """Wertet beim Start das Ende der bereits vorhandenen Logdatei aus, damit
+    das Dashboard nach jedem Neustart sofort echte, aktuelle Angriffe zeigt
+    statt bis zum nächsten frischen Log-Eintrag leer zu bleiben."""
+    try:
+        size = os.path.getsize(path)
+        with open(path, "r", errors="ignore") as f:
+            if size > tail_bytes:
+                f.seek(size - tail_bytes)
+                f.readline()  # angeschnittene erste Zeile verwerfen
+            for line in f:
+                parse_line(line, name)
+    except Exception:
+        pass
+
+
 def tail_logs():
     pos = {}
     for name, path in LOGS.items():
+        seed_history(name, path)
         try:
             pos[name] = os.path.getsize(path)
         except OSError:
