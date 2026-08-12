@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3lis.de – Live Attack Monitor</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   :root {
     --bg: #0f172a;
@@ -121,15 +122,54 @@
   #map-wrap {
     position: relative;
     width: 100%;
-    height: 280px;
+    height: 340px;
     background: #0b1220;
     border-radius: 10px;
     overflow: hidden;
   }
+  @media (max-width: 860px) {
+    #map-wrap { height: 260px; }
+  }
   #world-map {
     width: 100%;
     height: 100%;
-    display: block;
+  }
+  .leaflet-container {
+    background: #0b1220;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+  .leaflet-control-zoom a {
+    background: var(--panel) !important;
+    color: var(--text) !important;
+    border-color: #2f3f57 !important;
+  }
+  .leaflet-control-zoom a:hover { background: var(--card) !important; }
+  .leaflet-control-attribution {
+    background: rgba(15,23,42,0.75) !important;
+    color: var(--muted) !important;
+    font-size: 9px !important;
+  }
+  .leaflet-control-attribution a { color: var(--muted) !important; }
+  .leaflet-popup-content-wrapper {
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .leaflet-popup-content { font-size: 0.78rem; line-height: 1.5; margin: 8px 10px; }
+  .leaflet-popup-tip { background: var(--panel); }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+  .attack-arc { transition: opacity 0.8s ease-out; }
+  .server-icon-wrap {
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .server-icon-dot {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border: 2px solid #f1f5f9;
+    border-radius: 50%;
+    box-shadow: 0 0 8px 2px rgba(56,189,248,0.7);
   }
   .map-legend {
     display: flex;
@@ -257,13 +297,14 @@
   <div class="panel">
     <h2>🌍 Herkunft der Angriffe</h2>
     <div id="map-wrap">
-      <canvas id="world-map"></canvas>
+      <div id="world-map"></div>
     </div>
     <div class="map-legend">
       <div class="map-leg-item"><div class="map-dot" style="background:#ef4444"></div>Kritisch</div>
       <div class="map-leg-item"><div class="map-dot" style="background:#f97316"></div>Hoch</div>
       <div class="map-leg-item"><div class="map-dot" style="background:#eab308"></div>Mittel</div>
       <div class="map-leg-item"><div class="map-dot" style="background:#3b82f6"></div>Niedrig</div>
+      <div class="map-leg-item"><div class="map-dot" style="background:#38bdf8;box-shadow:0 0 4px 1px rgba(56,189,248,0.8)"></div>Zielserver</div>
     </div>
   </div>
 
@@ -290,6 +331,7 @@
   Rein clientseitige Simulation · Für echte Logs fail2ban / nginx / CrowdSec anbinden
 </footer>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ============================================================
 // Simulation data
@@ -356,93 +398,107 @@ ATTACK_TYPES.forEach(t => typeCounts[t.name] = 0);
 const timeline = Array(30).fill(0); // last 30 min buckets
 let timelineIdx = 0;
 
-const mapPoints = []; // {x, y, sev, life}
 const feed = document.getElementById('feed');
 const MAX_FEED = 40;
 
 // ============================================================
-// World map (simple equirectangular projection)
+// World map (Leaflet, dunkles Kachel-Theme)
 // ============================================================
-const mapCanvas = document.getElementById('world-map');
-const mapCtx = mapCanvas.getContext('2d');
+const SEV_COLORS = { crit: '#ef4444', high: '#f97316', med: '#eab308', low: '#3b82f6' };
 
-function resizeMap() {
-  const wrap = document.getElementById('map-wrap');
-  mapCanvas.width = wrap.clientWidth;
-  mapCanvas.height = wrap.clientHeight;
+const map = L.map('world-map', {
+  center: [20, 15],
+  zoom: 2,
+  minZoom: 2,
+  maxZoom: 9,
+  worldCopyJump: true,
+  attributionControl: true,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd',
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  maxZoom: 19,
+}).addTo(map);
+
+let serverLatLng = null;
+let serverMarker = null;
+
+// Demo-Ziel (Frankfurt/M.), aktiv solange die echte Server-Position
+// noch nicht vom Backend bekannt ist (siehe pollApi()).
+setServerLocation(50.1109, 8.6821, 'Demo-Ziel (Frankfurt)');
+
+function setServerLocation(lat, lon, name) {
+  serverLatLng = [lat, lon];
+  if (serverMarker) map.removeLayer(serverMarker);
+  serverMarker = L.marker(serverLatLng, {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="server-icon-wrap"><div class="server-icon-dot"></div></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    }),
+    zIndexOffset: 1000,
+  }).addTo(map).bindPopup(`<b>🎯 ${name}</b><br>Zielserver`);
 }
-window.addEventListener('resize', resizeMap);
-resizeMap();
 
-function latLonToXY(lat, lon) {
-  const x = (lon + 180) / 360 * mapCanvas.width;
-  const y = (90 - lat) / 180 * mapCanvas.height;
-  return { x, y };
+// Great-circle-Interpolation (sphärisches Lerp) zwischen zwei Punkten.
+// Auf der Mercator-Projektion ergibt das automatisch einen sanften Bogen
+// statt einer geraden Linie - so stellen etablierte Attack-Maps den
+// "Herweg" eines Angriffs dar (ein Live-Traceroute pro Event wäre zu
+// langsam/unzuverlässig für Echtzeit-Events und würde fremde Netze scannen).
+function greatCircle(lat1, lon1, lat2, lon2, points = 48) {
+  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+  const phi1 = toRad(lat1), lam1 = toRad(lon1), phi2 = toRad(lat2), lam2 = toRad(lon2);
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.sin((phi2 - phi1) / 2) ** 2 +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin((lam2 - lam1) / 2) ** 2
+  ));
+  if (d === 0) return [[lat1, lon1], [lat2, lon2]];
+  const coords = [];
+  for (let i = 0; i <= points; i++) {
+    const f = i / points;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(phi1) * Math.cos(lam1) + B * Math.cos(phi2) * Math.cos(lam2);
+    const y = A * Math.cos(phi1) * Math.sin(lam1) + B * Math.cos(phi2) * Math.sin(lam2);
+    const z = A * Math.sin(phi1) + B * Math.sin(phi2);
+    const phi = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const lam = Math.atan2(y, x);
+    coords.push([toDeg(phi), toDeg(lam)]);
+  }
+  return coords;
 }
 
-function drawMap() {
-  const w = mapCanvas.width, h = mapCanvas.height;
-  mapCtx.clearRect(0, 0, w, h);
+function spawnMapEvent(lat, lon, sev, popupHtml) {
+  const color = SEV_COLORS[sev] || SEV_COLORS.low;
 
-  // subtle grid
-  mapCtx.strokeStyle = 'rgba(56,189,248,0.06)';
-  mapCtx.lineWidth = 1;
-  for (let i = 0; i <= 12; i++) {
-    const x = (i / 12) * w;
-    mapCtx.beginPath(); mapCtx.moveTo(x, 0); mapCtx.lineTo(x, h); mapCtx.stroke();
-  }
-  for (let i = 0; i <= 6; i++) {
-    const y = (i / 6) * h;
-    mapCtx.beginPath(); mapCtx.moveTo(0, y); mapCtx.lineTo(w, y); mapCtx.stroke();
+  const marker = L.circleMarker([lat, lon], {
+    radius: 5, color, fillColor: color, fillOpacity: 0.9, weight: 1.5, opacity: 1,
+  }).addTo(map);
+  if (popupHtml) marker.bindPopup(popupHtml);
+
+  const pulse = L.circleMarker([lat, lon], {
+    radius: 5, color, weight: 2, fillOpacity: 0, opacity: 0.8, interactive: false,
+  }).addTo(map);
+  let r = 5;
+  const pulseTimer = setInterval(() => {
+    r += 1.3;
+    pulse.setRadius(r);
+    pulse.setStyle({ opacity: Math.max(0, 0.8 - r / 26) });
+    if (r > 26) { clearInterval(pulseTimer); map.removeLayer(pulse); }
+  }, 40);
+
+  if (serverLatLng) {
+    const line = L.polyline(greatCircle(lat, lon, serverLatLng[0], serverLatLng[1]), {
+      color, weight: 1.4, opacity: 0.7, className: 'attack-arc', interactive: false,
+    }).addTo(map);
+    setTimeout(() => line.setStyle({ opacity: 0 }), 2200);
+    setTimeout(() => map.removeLayer(line), 3000);
   }
 
-  // continents approximation (very rough filled regions)
-  mapCtx.fillStyle = 'rgba(30,41,59,0.7)';
-  const continents = [
-    // North America
-    [[-170,70],[-50,70],[-50,15],[-120,15],[-170,50]],
-    // South America
-    [[-80,10],[-35,10],[-35,-55],[-70,-55]],
-    // Europe
-    [[-10,70],[40,70],[40,35],[-10,35]],
-    // Africa
-    [[-20,35],[50,35],[50,-35],[-20,-35]],
-    // Asia
-    [[40,70],[150,70],[150,10],[40,10]],
-    // Australia
-    [[110,-10],[155,-10],[155,-40],[110,-40]]
-  ];
-  continents.forEach(poly => {
-    mapCtx.beginPath();
-    poly.forEach((p, i) => {
-      const {x,y} = latLonToXY(p[1], p[0]);
-      if (i === 0) mapCtx.moveTo(x,y); else mapCtx.lineTo(x,y);
-    });
-    mapCtx.closePath();
-    mapCtx.fill();
-  });
-
-  // attack points
-  const now = performance.now();
-  for (let i = mapPoints.length - 1; i >= 0; i--) {
-    const p = mapPoints[i];
-    p.life -= 0.012;
-    if (p.life <= 0) { mapPoints.splice(i, 1); continue; }
-    const alpha = Math.min(1, p.life);
-    const r = 3 + (1 - p.life) * 14;
-    const colors = { crit: '#ef4444', high: '#f97316', med: '#eab308', low: '#3b82f6' };
-    mapCtx.beginPath();
-    mapCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    mapCtx.fillStyle = colors[p.sev] + Math.floor(alpha * 80).toString(16).padStart(2,'0');
-    mapCtx.fill();
-    mapCtx.beginPath();
-    mapCtx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-    mapCtx.fillStyle = colors[p.sev];
-    mapCtx.fill();
-  }
-  requestAnimationFrame(drawMap);
+  setTimeout(() => marker.setStyle({ fillOpacity: 0 }), 8200);
+  setTimeout(() => map.removeLayer(marker), 9000);
 }
-drawMap();
 
 // ============================================================
 // Timeline chart
@@ -530,9 +586,10 @@ function spawnAttack() {
   typeCounts[type.name]++;
   timeline[timeline.length - 1]++;
 
-  // map point
-  const { x, y } = latLonToXY(country.lat + (Math.random()-0.5)*8, country.lon + (Math.random()-0.5)*12);
-  mapPoints.push({ x, y, sev: type.sev, life: 1 });
+  // map event
+  const lat = country.lat + (Math.random() - 0.5) * 8;
+  const lon = country.lon + (Math.random() - 0.5) * 12;
+  spawnMapEvent(lat, lon, type.sev, `<b>${ip}</b><br>${country.name} · ${type.name}<br>${status.s}`);
 
   // feed row
   const row = document.createElement('div');
@@ -569,6 +626,7 @@ setInterval(() => {
 const API_URL = '/api/attacks';
 let useApi = true;
 let lastApiCount = 0;
+let realServerSet = false;
 
 function addAttackFromApi(a) {
   totalBlocked++;
@@ -577,12 +635,13 @@ function addAttackFromApi(a) {
   timeline[timeline.length - 1]++;
   attacksThisMinute++;
 
-  // rough geo from IP first octet (demo)
-  const first = parseInt(a.ip.split('.')[0], 10) || 50;
-  const lat = 20 + (first % 50) - 10;
-  const lon = -100 + (first * 3) % 200;
-  const { x, y } = latLonToXY(lat, lon);
-  mapPoints.push({ x, y, sev: a.sev || 'med', life: 1 });
+  // Reale Geo-Position vom Backend (asynchron per ip-api.com aufgelöst).
+  // Beim allerersten Auftauchen einer neuen IP kann die Position noch
+  // fehlen - dann wird nur Feed/Statistik aktualisiert, kein Map-Event.
+  if (typeof a.lat === 'number' && typeof a.lon === 'number') {
+    const label = a.country ? `${a.country}` : a.ip;
+    spawnMapEvent(a.lat, a.lon, a.sev || 'med', `<b>${a.ip}</b><br>${label} · ${a.type}<br>${a.time}`);
+  }
 
   const row = document.createElement('div');
   row.className = `attack-row ${a.sev || 'med'}`;
@@ -590,7 +649,7 @@ function addAttackFromApi(a) {
     <div class="atk-time">${a.time}</div>
     <div>
       <div class="atk-ip">${a.ip}</div>
-      <div class="atk-country">${a.src || 'log'}</div>
+      <div class="atk-country">${a.country || a.src || 'log'}</div>
     </div>
     <div class="atk-type">${a.type}</div>
     <div class="atk-status status-blocked">LIVE</div>
@@ -610,6 +669,10 @@ async function pollApi() {
     if (!r.ok) throw new Error('API not ok');
     const data = await r.json();
     useApi = true;
+    if (!realServerSet && data.server && typeof data.server.lat === 'number') {
+      setServerLocation(data.server.lat, data.server.lon, data.server.name || 'Zielserver');
+      realServerSet = true;
+    }
     if (data.attacks && data.attacks.length > lastApiCount) {
       const newOnes = data.attacks.slice(0, data.attacks.length - lastApiCount);
       newOnes.reverse().forEach(addAttackFromApi);
@@ -657,7 +720,7 @@ setTimeout(() => {
 }, 100);
 
 window.addEventListener('resize', () => {
-  resizeMap();
+  map.invalidateSize();
   drawTimeline();
   drawTypes();
 });

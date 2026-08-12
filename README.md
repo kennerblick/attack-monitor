@@ -5,10 +5,17 @@ Modernes Live-Dashboard für Angriffe auf den Server (analog zur [Elements-Lerna
 ## Features
 
 - Live-Feed (IP, Typ, Status) aus nginx + auth.log + fail2ban
-- Weltkarte mit Angriffsherden
+- Echte Weltkarte (Leaflet + dunkle CartoDB-Kacheln), zoom- und pan-bar
+- Angriffe werden per IP-Geolokalisierung (ip-api.com, im Backend gecacht) an ihrer echten Position angezeigt, inkl. animiertem Bogen zum Zielserver
 - Statistik-Karten + Diagramme
 - fail2ban-Jails für SSH (Port 22022) + Web-Probes
 - Reine Client-Seite + kleines Python-Backend
+
+## Externe Abhängigkeiten
+
+- **Frontend** lädt Leaflet (JS/CSS) sowie Kartenkacheln von `unpkg.com` und `basemaps.cartocdn.com` per CDN.
+- **Backend** ruft für neu gesehene Angreifer-IPs `ip-api.com` auf (kostenlos, kein Key, ~45 Req/Min-Limit, Anfragen laufen asynchron über eine Queue und werden dauerhaft pro IP gecacht). Beim Start ermittelt es außerdem einmalig die eigene Standort-Position für den Zielserver-Marker auf der Karte.
+- Damit werden Angreifer-IPs an einen externen Drittanbieter (ip-api.com) übertragen. Falls das nicht gewünscht ist, `geolocate()` in `backend/server.py` deaktivieren (liefert dann `None`, die Karte zeigt nur noch die Demo-Simulation für nicht lokalisierte Events).
 
 ## Struktur
 
