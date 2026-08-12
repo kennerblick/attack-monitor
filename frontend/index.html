@@ -486,6 +486,16 @@ function greatCircle(lat1, lon1, lat2, lon2, points = 48) {
   return coords;
 }
 
+// Marker bleiben deutlich länger sichtbar als die Ankunfts-Animation dauert:
+// ein Live-Feed mit vereinzelten echten Angriffen (statt eines Streams von
+// mehreren pro Sekunde) würde mit einer kurzen Lebensdauer die meiste Zeit
+// komplett leer aussehen, obwohl alles korrekt funktioniert. Die Karte zeigt
+// also die "zuletzt gesehenen Quellen" der letzten Minuten, nicht nur den
+// exakten Sekundenbruchteil eines eingehenden Ereignisses.
+const MARKER_LIFETIME = 3 * 60 * 1000;
+const MAX_MAP_MARKERS = 150; // Deckel gegen unbegrenztes Wachstum bei Angriffs-Bursts
+const activeMarkers = [];
+
 function spawnMapEvent(lat, lon, sev, popupHtml) {
   const color = SEV_COLORS[sev] || SEV_COLORS.low;
 
@@ -513,8 +523,21 @@ function spawnMapEvent(lat, lon, sev, popupHtml) {
     setTimeout(() => map.removeLayer(line), 3000);
   }
 
-  setTimeout(() => marker.setStyle({ fillOpacity: 0 }), 8200);
-  setTimeout(() => map.removeLayer(marker), 9000);
+  const fadeTimer = setTimeout(() => marker.setStyle({ fillOpacity: 0, opacity: 0.3 }), MARKER_LIFETIME - 800);
+  const removeTimer = setTimeout(() => removeMarker(marker), MARKER_LIFETIME);
+  activeMarkers.push({ marker, fadeTimer, removeTimer });
+  while (activeMarkers.length > MAX_MAP_MARKERS) {
+    const oldest = activeMarkers.shift();
+    clearTimeout(oldest.fadeTimer);
+    clearTimeout(oldest.removeTimer);
+    removeMarker(oldest.marker);
+  }
+}
+
+function removeMarker(marker) {
+  map.removeLayer(marker);
+  const i = activeMarkers.findIndex(m => m.marker === marker);
+  if (i !== -1) activeMarkers.splice(i, 1);
 }
 
 // ============================================================
