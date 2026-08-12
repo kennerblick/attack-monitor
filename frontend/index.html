@@ -625,8 +625,14 @@ setInterval(() => {
 // ============================================================
 const API_URL = '/api/attacks';
 let useApi = true;
-let lastApiCount = 0;
 let realServerSet = false;
+
+// IDs statt Array-Länge: die alte "length > lastCount"-Prüfung blieb für
+// immer hängen, sobald das Backend seine 60er-Fensterkappe erreicht hatte
+// (Länge wächst dann nie wieder). Attack-IDs sind streng aufsteigend, daher
+// reicht die höchste bereits gesehene ID.
+let maxSeenId = 0;
+const mappedIds = new Set(); // verhindert doppelte Karten-Events pro Attack-ID
 
 function addAttackFromApi(a) {
   totalBlocked++;
@@ -634,14 +640,6 @@ function addAttackFromApi(a) {
   typeCounts[a.type] = (typeCounts[a.type] || 0) + 1;
   timeline[timeline.length - 1]++;
   attacksThisMinute++;
-
-  // Reale Geo-Position vom Backend (asynchron per ip-api.com aufgelöst).
-  // Beim allerersten Auftauchen einer neuen IP kann die Position noch
-  // fehlen - dann wird nur Feed/Statistik aktualisiert, kein Map-Event.
-  if (typeof a.lat === 'number' && typeof a.lon === 'number') {
-    const label = a.country ? `${a.country}` : a.ip;
-    spawnMapEvent(a.lat, a.lon, a.sev || 'med', `<b>${a.ip}</b><br>${label} · ${a.type}<br>${a.time}`);
-  }
 
   const row = document.createElement('div');
   row.className = `attack-row ${a.sev || 'med'}`;
@@ -663,6 +661,16 @@ function addAttackFromApi(a) {
   document.getElementById('s-top').textContent = top ? top[0].split(' ')[0] : '—';
 }
 
+// Zeichnet ein Karten-Event, sobald für eine Attack-ID erstmals eine
+// Geo-Position bekannt ist - egal ob sofort beim ersten Poll oder erst ein
+// paar Sekunden später, wenn der asynchrone Lookup im Backend fertig wird.
+function maybeMapEvent(a) {
+  if (mappedIds.has(a.id) || typeof a.lat !== 'number' || typeof a.lon !== 'number') return;
+  mappedIds.add(a.id);
+  const label = a.country || a.ip;
+  spawnMapEvent(a.lat, a.lon, a.sev || 'med', `<b>${a.ip}</b><br>${label} · ${a.type}<br>${a.time}`);
+}
+
 async function pollApi() {
   try {
     const r = await fetch(API_URL, { cache: 'no-store' });
@@ -673,10 +681,15 @@ async function pollApi() {
       setServerLocation(data.server.lat, data.server.lon, data.server.name || 'Zielserver');
       realServerSet = true;
     }
-    if (data.attacks && data.attacks.length > lastApiCount) {
-      const newOnes = data.attacks.slice(0, data.attacks.length - lastApiCount);
-      newOnes.reverse().forEach(addAttackFromApi);
-      lastApiCount = data.attacks.length;
+    if (data.attacks) {
+      const newOnes = data.attacks.filter(a => a.id > maxSeenId);
+      if (newOnes.length) {
+        maxSeenId = Math.max(maxSeenId, ...newOnes.map(a => a.id));
+        newOnes.slice().reverse().forEach(addAttackFromApi);
+      }
+      // gesamtes Antwortfenster erneut prüfen, damit nachträglich
+      // aufgelöste Geo-Positionen noch auf der Karte landen
+      data.attacks.forEach(maybeMapEvent);
     }
     if (data.stats) {
       Object.assign(typeCounts, data.stats);

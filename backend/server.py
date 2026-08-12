@@ -2,7 +2,7 @@
 """Live Attack Monitor API for 3lis.de"""
 import json, time, re, os, threading, queue, ipaddress, urllib.request
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from collections import deque, Counter
+from collections import deque, Counter, defaultdict
 from datetime import datetime
 
 LOGS = {
@@ -14,6 +14,7 @@ LOGS = {
 ATTACKS = deque(maxlen=300)
 STATS = Counter()
 SEEN = set()
+NEXT_ID = 0
 
 PATTERNS = [
     (r'\.env|\.git|wp-login|wp-admin|phpmyadmin|xmlrpc|adminer|\.sql|\.bak', "Web-Probe", "high"),
@@ -29,15 +30,22 @@ PATTERNS = [
 #
 # Läuft komplett asynchron über eine Queue + eigenen Worker-Thread,
 # damit das Log-Tailing niemals auf einen Netzwerk-Request wartet.
-# Ergebnis wird pro IP dauerhaft gecacht. Bei neu gesehenen IPs ist
-# die Geo-Position beim allerersten Treffer noch leer und füllt sich
-# erst danach (spätestens beim nächsten Treffer derselben IP).
+# Ergebnis wird pro IP dauerhaft gecacht. Die meisten Angreifer-IPs
+# treten aber nur EINMAL im Log auf (Scanner ziehen weiter) - wenn wir
+# beim ersten Treffer nur den damaligen Cache-Stand einfrieren würden,
+# bekäme so ein Angriff nie eine Position auf der Karte, weil der
+# Lookup erst Sekunden später fertig wird. Deshalb wird das bereits im
+# Feed sichtbare Attack-Dict in PENDING_GEO registriert und vom
+# Worker-Thread nachträglich in-place mit lat/lon aktualisiert, sobald
+# das Ergebnis da ist (das Frontend fragt das per Attack-ID erneut ab).
 # ------------------------------------------------------------------
 GEO_CACHE = {}          # ip -> {"lat","lon","country","countryCode"} oder None
 GEO_QUEUED = set()
+PENDING_GEO = defaultdict(list)  # ip -> Liste noch unaufgelöster Attack-Dicts
 GEO_LOCK = threading.Lock()
 GEO_QUEUE = queue.Queue(maxsize=500)
-GEO_LOOKUP_INTERVAL = 1.4  # ~43 req/min, unter dem 45/min Free-Limit von ip-api.com
+GEO_LOOKUP_INTERVAL = 1.4   # ~43 req/min, unter dem 45/min Free-Limit von ip-api.com
+GEO_RETRY_DELAY = 10        # Sekunden bis zu einem erneuten Versuch nach Netzwerkfehler
 
 SERVER_LOCATION = {"lat": None, "lon": None, "name": "Server"}
 
@@ -58,6 +66,15 @@ def detect_server_location():
         pass
 
 
+def _enqueue(ip):
+    if ip not in GEO_QUEUED:
+        GEO_QUEUED.add(ip)
+        try:
+            GEO_QUEUE.put_nowait(ip)
+        except queue.Full:
+            GEO_QUEUED.discard(ip)
+
+
 def geo_worker():
     url = "http://ip-api.com/json/{}?fields=status,lat,lon,country,countryCode"
     while True:
@@ -73,35 +90,59 @@ def geo_worker():
                 result = None  # von ip-api selbst abgelehnt (z.B. reservierter Bereich) -> dauerhaft cachen
             with GEO_LOCK:
                 GEO_CACHE[ip] = result
+                pending = PENDING_GEO.pop(ip, [])
+            if result:
+                for attack in pending:
+                    attack["lat"] = result["lat"]
+                    attack["lon"] = result["lon"]
+                    attack["country"] = result["country"]
+                    attack["countryCode"] = result["countryCode"]
         except Exception:
             # Netzwerkfehler/Timeout/Rate-Limit: nicht dauerhaft cachen, später erneut versuchen
             with GEO_LOCK:
                 GEO_QUEUED.discard(ip)
+                still_wanted = ip in PENDING_GEO
+            if still_wanted:
+                threading.Timer(GEO_RETRY_DELAY, _retry, args=(ip,)).start()
         time.sleep(GEO_LOOKUP_INTERVAL)
 
 
+def _retry(ip):
+    with GEO_LOCK:
+        if ip in PENDING_GEO and ip not in GEO_CACHE:
+            _enqueue(ip)
+
+
 def geolocate(ip):
-    """Nicht-blockierend: liefert gecachte Geo-Daten oder None und stößt bei
-    unbekannten IPs im Hintergrund einen Lookup an."""
+    """Nicht-blockierend: liefert (geo, pending).
+    geo ist die gecachte Geo-Position oder None. pending ist True, wenn die
+    IP grundsätzlich auflösbar ist und ein Lookup dafür läuft/angestoßen
+    wurde - nur dann lohnt es sich, das Attack-Dict für ein späteres
+    In-place-Update vorzumerken (siehe register_pending)."""
     try:
         addr = ipaddress.ip_address(ip)
         if not addr.is_global:
-            return None
+            return None, False
     except ValueError:
-        return None
+        return None, False
     with GEO_LOCK:
         if ip in GEO_CACHE:
-            return GEO_CACHE[ip]
-        if ip not in GEO_QUEUED:
-            GEO_QUEUED.add(ip)
-            try:
-                GEO_QUEUE.put_nowait(ip)
-            except queue.Full:
-                GEO_QUEUED.discard(ip)
-    return None
+            return GEO_CACHE[ip], False
+        _enqueue(ip)
+    return None, True
+
+
+def register_pending(ip, attack):
+    """Merkt ein bereits ausgeliefertes Attack-Dict vor, damit es in-place mit
+    lat/lon aktualisiert wird, sobald der asynchrone Geo-Lookup fertig ist."""
+    with GEO_LOCK:
+        if ip in GEO_CACHE:
+            return  # zwischen geolocate() und hier bereits aufgelöst worden
+        PENDING_GEO[ip].append(attack)
 
 
 def parse_line(line, source):
+    global NEXT_ID
     m = re.search(r'(\d{1,3}\.){3}\d{1,3}', line)
     if not m:
         return
@@ -115,8 +156,10 @@ def parse_line(line, source):
 
     for pat, typ, sev in PATTERNS:
         if re.search(pat, line, re.I):
-            geo = geolocate(ip)
-            ATTACKS.appendleft({
+            NEXT_ID += 1
+            geo, pending = geolocate(ip)
+            attack = {
+                "id": NEXT_ID,
                 "time": datetime.now().strftime("%H:%M:%S"),
                 "ip": ip,
                 "type": typ,
@@ -127,7 +170,10 @@ def parse_line(line, source):
                 "lon": geo["lon"] if geo else None,
                 "country": geo["country"] if geo else None,
                 "countryCode": geo["countryCode"] if geo else None,
-            })
+            }
+            ATTACKS.appendleft(attack)
+            if pending:
+                register_pending(ip, attack)
             STATS[typ] += 1
             break
 
