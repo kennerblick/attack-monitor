@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>3lis.de – Live Attack Monitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@500;700;900&family=Audiowide&family=Oswald:wght@500;700&family=Quicksand:wght@500;700&family=Permanent+Marker&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0f172a;
@@ -15,28 +18,48 @@
     --text: #f1f5f9;
     --muted: #94a3b8;
     --danger: #ef4444;
-    --warn: #f59e0b;
-    --ok: #22c55e;
+    --warn: #d97706;
+    --ok: #16a34a;
     --crit: #dc2626;
     --high: #f97316;
     --med: #eab308;
     --low: #3b82f6;
+
+    /* Theme-Engine: Basiswerte, jedes [data-theme] überschreibt nur diese Variablen */
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --heading-font: var(--font);
+    --row-bg: #1a2538;
+    --border-color: #2f3f57;
+    --radius-lg: 12px;
+    --radius-sm: 8px;
+    --panel-shadow: none;
+    --panel-border-width: 1px;
+    --bg-pattern: none;
+    --bg-anim: none;
+    --map-filter: none;
+    --map-tile: dark;
+    --letter-spacing: 0.5px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font);
     background: var(--bg);
+    background-image: var(--bg-pattern);
+    background-size: var(--bg-pattern-size, auto);
+    animation: var(--bg-anim, none);
     color: var(--text);
     min-height: 100vh;
     padding: 12px;
     overflow-x: hidden;
+    transition: background-color 0.3s, color 0.3s;
   }
   h1 {
+    font-family: var(--heading-font);
     text-align: center;
     font-size: 1.35rem;
     color: var(--accent);
     margin-bottom: 4px;
-    letter-spacing: 0.5px;
+    letter-spacing: var(--letter-spacing);
   }
   .subtitle {
     text-align: center;
@@ -67,10 +90,11 @@
   }
   .stat-card {
     background: var(--panel);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 14px 12px;
     text-align: center;
-    border: 1px solid #2f3f57;
+    border: var(--panel-border-width) solid var(--border-color);
+    box-shadow: var(--panel-shadow);
     transition: transform 0.15s;
   }
   .stat-card:hover { transform: translateY(-2px); }
@@ -105,11 +129,13 @@
 
   .panel {
     background: var(--panel);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 14px;
-    border: 1px solid #2f3f57;
+    border: var(--panel-border-width) solid var(--border-color);
+    box-shadow: var(--panel-shadow);
   }
   .panel h2 {
+    font-family: var(--heading-font);
     font-size: 0.95rem;
     color: var(--accent);
     margin-bottom: 10px;
@@ -118,13 +144,41 @@
     gap: 8px;
   }
 
+  /* Theme-Switcher */
+  #theme-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: 1100px;
+    margin: 0 auto 16px;
+  }
+  .theme-btn {
+    font-family: var(--font);
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: transform 0.12s, color 0.15s, border-color 0.15s;
+  }
+  .theme-btn:hover { color: var(--text); transform: translateY(-1px); }
+  .theme-btn.active {
+    color: var(--bg);
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+
   /* Map */
   #map-wrap {
     position: relative;
     width: 100%;
     height: 340px;
     background: #0b1220;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
   }
   @media (max-width: 860px) {
@@ -136,7 +190,11 @@
   }
   .leaflet-container {
     background: #0b1220;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-family: var(--font);
+  }
+  .leaflet-tile-pane {
+    filter: var(--map-filter);
+    transition: filter 0.4s;
   }
   .leaflet-control-zoom a {
     background: var(--panel) !important;
@@ -197,13 +255,15 @@
   }
   .chart-box {
     background: var(--panel);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 12px;
-    border: 1px solid #2f3f57;
+    border: var(--panel-border-width) solid var(--border-color);
+    box-shadow: var(--panel-shadow);
     height: 220px;
     position: relative;
   }
   .chart-box h3 {
+    font-family: var(--heading-font);
     font-size: 0.85rem;
     color: var(--accent);
     margin-bottom: 6px;
@@ -228,8 +288,8 @@
     grid-template-columns: 70px 1fr 90px 70px;
     gap: 6px;
     align-items: center;
-    background: #1a2538;
-    border-radius: 8px;
+    background: var(--row-bg);
+    border-radius: var(--radius-sm);
     padding: 7px 10px;
     font-size: 0.78rem;
     border-left: 3px solid var(--card);
@@ -248,10 +308,14 @@
   .atk-type { color: var(--accent2); font-weight: 600; }
   .atk-country { color: var(--muted); font-size: 0.72rem; }
   .atk-status {
-    font-size: 0.68rem;
+    font-size: 0.6rem;
     font-weight: 700;
-    text-align: right;
+    text-align: center;
     text-transform: uppercase;
+    justify-self: end;
+    padding: 3px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
   }
   .feed-empty {
     display: flex;
@@ -263,9 +327,12 @@
     padding: 28px 8px;
     text-align: center;
   }
-  .status-blocked { color: var(--ok); }
-  .status-dropped { color: var(--warn); }
-  .status-rate { color: var(--accent); }
+  /* Feste, themeunabhängige Statusfarben (wie schon bei den Schweregrad-
+     Rahmen links): sind Signalfarben, keine Deko - müssen auf jedem Panel-
+     Hintergrund lesbar bleiben, unabhängig davon wie hell das Theme ist. */
+  .status-blocked { background: #166534; color: #ffffff; }
+  .status-dropped { background: #92400e; color: #ffffff; }
+  .status-rate { background: #1d4ed8; color: #ffffff; }
 
   /* Footer */
   footer {
@@ -275,12 +342,260 @@
     font-size: 0.72rem;
   }
   footer a { color: var(--accent); text-decoration: none; }
+
+  /* ============================================================
+     THEMES
+     Jedes Theme überschreibt nur die Variablen aus :root - Layout,
+     Datenfelder und Kontrastregeln bleiben für alle Themes identisch,
+     damit die Angriffsdaten immer lesbar bleiben.
+  ============================================================ */
+
+  /* --- Apple, frühe 80er (System 1-6 / Apple II Ära) --- */
+  [data-theme="apple80"] {
+    --bg: #ded9c4;
+    --panel: #f5f3e9;
+    --card: #cfc9ae;
+    --accent: #1a1a1a;
+    --accent2: #6b3fa0;
+    --text: #111111;
+    --muted: #55503f;
+    --row-bg: #ffffff;
+    --border-color: #111111;
+    --radius-lg: 0px;
+    --radius-sm: 0px;
+    --panel-shadow: 3px 3px 0 #111111;
+    --panel-border-width: 2px;
+    --font: Geneva, 'Courier New', monospace;
+    --heading-font: Geneva, 'Courier New', monospace;
+    --letter-spacing: 0px;
+    --map-tile: light;
+    --map-filter: contrast(1.3) grayscale(0.7);
+  }
+  [data-theme="apple80"] .stat-card:hover,
+  [data-theme="apple80"] .theme-btn:hover { transform: none; }
+  [data-theme="apple80"] h1::before { content: "🍎 "; }
+  [data-theme="apple80"] .live-dot { border-radius: 0; background: var(--accent); animation: none; }
+
+  /* --- Apple heute (macOS/iOS, Glas-Optik) --- */
+  [data-theme="appleToday"] {
+    --bg: #f5f5f7;
+    --panel: rgba(255,255,255,0.72);
+    --card: #e8e8ed;
+    --accent: #0a84ff;
+    --accent2: #c2660a;
+    --text: #1d1d1f;
+    --muted: #86868b;
+    --row-bg: rgba(255,255,255,0.9);
+    --border-color: rgba(0,0,0,0.06);
+    --radius-lg: 20px;
+    --radius-sm: 14px;
+    --panel-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    --panel-border-width: 1px;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    --heading-font: var(--font);
+    --map-tile: light;
+    --map-filter: none;
+  }
+  [data-theme="appleToday"] .panel,
+  [data-theme="appleToday"] .stat-card,
+  [data-theme="appleToday"] .chart-box {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* --- Star Trek: Discovery --- */
+  [data-theme="startrek"] {
+    --bg: #05060c;
+    --panel: #10131f;
+    --card: #1c2138;
+    --accent: #5ac8fa;
+    --accent2: #ff9f0a;
+    --text: #e4ecff;
+    --muted: #7d88b3;
+    --row-bg: #151a2c;
+    --border-color: #2a3358;
+    --radius-lg: 4px 28px 4px 28px;
+    --radius-sm: 3px 16px 3px 16px;
+    --panel-shadow: 0 0 0 1px rgba(90,200,250,0.15);
+    --panel-border-width: 0px;
+    --font: 'Rajdhani', 'Segoe UI', sans-serif;
+    --heading-font: 'Orbitron', var(--font);
+    --letter-spacing: 1px;
+    --map-tile: dark;
+    --map-filter: saturate(1.3) hue-rotate(10deg);
+  }
+  [data-theme="startrek"] .panel { border-left: 6px solid var(--accent2); }
+
+  /* --- DDR-Design --- */
+  [data-theme="ddr"] {
+    --bg: #e8dcc0;
+    --panel: #f2ead4;
+    --card: #d8c9a0;
+    --accent: #b8121f;
+    --accent2: #2b2b2b;
+    --text: #1c1c1c;
+    --muted: #5a5240;
+    --row-bg: #ffffff;
+    --border-color: #1c1c1c;
+    --radius-lg: 0px;
+    --radius-sm: 0px;
+    --panel-shadow: none;
+    --panel-border-width: 3px;
+    --font: 'Oswald', 'Arial Narrow', sans-serif;
+    --heading-font: 'Oswald', sans-serif;
+    --letter-spacing: 0.5px;
+    --map-tile: dark;
+    --map-filter: sepia(0.7) hue-rotate(-40deg) saturate(2) contrast(1.1);
+  }
+  [data-theme="ddr"] h1::before { content: "★ "; }
+  [data-theme="ddr"] .stat-card:hover { transform: none; }
+
+  /* --- Bio-Qualität --- */
+  [data-theme="bio"] {
+    --bg: #f2ead6;
+    --panel: #fbf7ec;
+    --card: #e3dcc4;
+    --accent: #4a7c3f;
+    --accent2: #7a4d24;
+    --text: #2b2b1f;
+    --muted: #7a7a68;
+    --row-bg: #ffffff;
+    --border-color: #cfc4a0;
+    --radius-lg: 16px;
+    --radius-sm: 12px;
+    --panel-shadow: 0 2px 10px rgba(74,124,63,0.12);
+    --panel-border-width: 1px;
+    --font: 'Quicksand', 'Segoe UI', sans-serif;
+    --heading-font: 'Quicksand', sans-serif;
+    --map-tile: voyager;
+    --map-filter: saturate(1.1);
+  }
+  [data-theme="bio"] h1::before { content: "🌿 "; }
+
+  /* --- Super-Pixel-Brothers (retro 8-Bit, generisch) --- */
+  [data-theme="mario"] {
+    --bg: #5c94fc;
+    --panel: #fdf7e4;
+    --card: #e52521;
+    --accent: #e52521;
+    --accent2: #8a6d00;
+    --text: #1c1c1c;
+    --muted: #1e3a8a;
+    --row-bg: #ffffff;
+    --border-color: #1c1c1c;
+    --radius-lg: 0px;
+    --radius-sm: 0px;
+    --panel-shadow: 4px 4px 0 #1c1c1c;
+    --panel-border-width: 3px;
+    --font: 'Press Start 2P', monospace;
+    --heading-font: 'Press Start 2P', monospace;
+    --letter-spacing: 0px;
+    --map-tile: voyager;
+    --map-filter: saturate(1.6) contrast(1.15);
+  }
+  [data-theme="mario"] body { font-size: 0.85rem; }
+  [data-theme="mario"] .stat-value { font-size: 1.15rem; }
+  [data-theme="mario"] h1::before { content: "🪙 "; }
+  [data-theme="mario"] .theme-btn.active { color: #ffffff; text-shadow: 1px 1px 0 #1c1c1c; }
+  [data-theme="mario"] .leaflet-tile-pane { image-rendering: pixelated; }
+  [data-theme="mario"] .stat-card:hover { transform: translateY(-3px); }
+
+  /* --- Future Design 2100 --- */
+  @keyframes futureShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes hueCycle {
+    0%   { filter: hue-rotate(0deg) saturate(1.8) brightness(1.1); }
+    100% { filter: hue-rotate(360deg) saturate(1.8) brightness(1.1); }
+  }
+  [data-theme="future2100"] {
+    --bg: #05010f;
+    --panel: rgba(20,10,40,0.65);
+    --card: #2a1250;
+    --accent: #00fff2;
+    --accent2: #ff2ee0;
+    --text: #f1f0ff;
+    --muted: #9d8fd6;
+    --row-bg: rgba(30,15,55,0.85);
+    --border-color: rgba(0,255,242,0.35);
+    --radius-lg: 18px;
+    --radius-sm: 12px;
+    --panel-shadow: 0 0 24px rgba(0,255,242,0.15), inset 0 0 0 1px rgba(255,46,224,0.25);
+    --panel-border-width: 1px;
+    --font: 'Rajdhani', 'Segoe UI', sans-serif;
+    --heading-font: 'Audiowide', var(--font);
+    --letter-spacing: 1px;
+    --bg-pattern: linear-gradient(120deg, #05010f, #150a30, #05010f, #1a0a3d);
+    --bg-pattern-size: 300% 300%;
+    --bg-anim: futureShift 12s ease infinite;
+    --map-tile: dark;
+  }
+  [data-theme="future2100"] .leaflet-tile-pane { animation: hueCycle 8s linear infinite; }
+  [data-theme="future2100"] h1 {
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background-size: 200% auto;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: futureShift 4s linear infinite;
+  }
+  [data-theme="future2100"] .panel, [data-theme="future2100"] .stat-card, [data-theme="future2100"] .chart-box {
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* --- Voll Chrome (Web-2.0-Skeuomorphismus) --- */
+  [data-theme="chrome"] {
+    --bg: #cfd4da;
+    --panel: linear-gradient(180deg, #f7f9fb 0%, #d7dce2 100%);
+    --card: #b9c1ca;
+    --accent: #2f6fb0;
+    --accent2: #4a90d9;
+    --text: #16202b;
+    --muted: #5b6b7a;
+    --row-bg: linear-gradient(180deg, #ffffff 0%, #e3e8ee 100%);
+    --border-color: #8a97a5;
+    --radius-lg: 10px;
+    --radius-sm: 8px;
+    --panel-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.25);
+    --panel-border-width: 1px;
+    --font: 'Segoe UI', Roboto, Arial, sans-serif;
+    --heading-font: var(--font);
+    --map-tile: light;
+    --map-filter: grayscale(1) contrast(1.25) brightness(1.05);
+  }
+  /* --- Punk-Comic-Hommage ("Werner"-Stil, ohne Original-Artwork) --- */
+  [data-theme="werner"] {
+    --bg: #e9e5d8;
+    --panel: #fffdf5;
+    --card: #d1121a;
+    --accent: #d1121a;
+    --accent2: #9c7a00;
+    --text: #111111;
+    --muted: #4a4a4a;
+    --row-bg: #ffffff;
+    --border-color: #111111;
+    --radius-lg: 2px;
+    --radius-sm: 2px;
+    --panel-shadow: 4px 4px 0 #111111;
+    --panel-border-width: 3px;
+    --font: 'Kalam', 'Comic Sans MS', cursive;
+    --heading-font: 'Permanent Marker', cursive;
+    --bg-pattern: radial-gradient(#0000001a 1px, transparent 1.5px);
+    --bg-pattern-size: 6px 6px;
+    --map-tile: dark;
+    --map-filter: grayscale(0.85) contrast(1.5) brightness(0.9);
+  }
+  [data-theme="werner"] .panel { transform: rotate(-0.3deg); }
+  [data-theme="werner"] .panel:nth-of-type(even) { transform: rotate(0.3deg); }
+  [data-theme="werner"] h1::before { content: "🏍️ "; }
 </style>
 </head>
 <body>
 
 <h1><span class="live-dot"></span>3lis.de – Live Attack Monitor</h1>
 <div class="subtitle">Echtzeit-Übersicht aller erkannten Angriffe auf den Server · Live + Fallback</div>
+
+<div id="theme-switcher"></div>
 
 <!-- Stats -->
 <div id="stats">
@@ -431,11 +746,75 @@ const map = L.map('world-map', {
   worldCopyJump: true,
   attributionControl: true,
 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  subdomains: 'abcd',
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
-  maxZoom: 19,
-}).addTo(map);
+
+const TILE_URLS = {
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  voyager: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+};
+let currentTileKind = null;
+let currentTileLayer = null;
+
+function setMapTileKind(kind) {
+  if (kind === currentTileKind) return;
+  if (currentTileLayer) map.removeLayer(currentTileLayer);
+  currentTileLayer = L.tileLayer(TILE_URLS[kind] || TILE_URLS.dark, {
+    subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
+  }).addTo(map);
+  currentTileKind = kind;
+}
+setMapTileKind('dark');
+
+// ============================================================
+// Theme-Engine
+// Jedes Theme überschreibt nur CSS-Variablen (siehe <style>) und wählt
+// einen Leaflet-Kachelstil; Layout, DOM-Struktur und Datenfelder bleiben
+// für jedes Theme identisch, damit die Angriffsdaten immer lesbar sind.
+// ============================================================
+const THEMES = [
+  { id: 'default',    label: 'Standard',       tile: 'dark' },
+  { id: 'apple80',     label: '🍎 Apple ’80er',  tile: 'light' },
+  { id: 'appleToday',  label: '🍏 Apple heute',  tile: 'light' },
+  { id: 'startrek',    label: '🖖 Discovery',    tile: 'dark' },
+  { id: 'ddr',          label: '★ DDR',          tile: 'dark' },
+  { id: 'bio',          label: '🌿 Bio-Qualität', tile: 'voyager' },
+  { id: 'mario',        label: '🪙 Pixel-Bros',   tile: 'voyager' },
+  { id: 'future2100',   label: '🛸 2100',         tile: 'dark' },
+  { id: 'chrome',       label: '⚙️ Voll Chrome',  tile: 'light' },
+  { id: 'werner',       label: '🏍️ Werner',      tile: 'dark' },
+];
+const THEME_STORAGE_KEY = 'attackMonitorTheme';
+
+function applyTheme(id) {
+  const theme = THEMES.find(t => t.id === id) || THEMES[0];
+  if (theme.id === 'default') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme.id);
+  }
+  setMapTileKind(theme.tile);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeId === theme.id);
+  });
+  try { localStorage.setItem(THEME_STORAGE_KEY, theme.id); } catch (e) {}
+  drawTimeline();
+  drawTypes();
+}
+
+function buildThemeSwitcher() {
+  const wrap = document.getElementById('theme-switcher');
+  THEMES.forEach(theme => {
+    const btn = document.createElement('button');
+    btn.className = 'theme-btn';
+    btn.type = 'button';
+    btn.dataset.themeId = theme.id;
+    btn.textContent = theme.label;
+    btn.addEventListener('click', () => applyTheme(theme.id));
+    wrap.appendChild(btn);
+  });
+}
 
 let serverLatLng = null;
 let serverMarker = null;
@@ -540,6 +919,14 @@ function removeMarker(marker) {
   if (i !== -1) activeMarkers.splice(i, 1);
 }
 
+// Liest Farben aus den aktuell aktiven CSS-Variablen, damit die Canvas-Charts
+// (die ihre Farben nicht per CSS bekommen können) bei jedem Theme-Wechsel
+// automatisch mitziehen, statt fest verdrahtete Hex-Werte zu behalten.
+function themeColor(varName, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
 // ============================================================
 // Timeline chart
 // ============================================================
@@ -557,14 +944,16 @@ function drawTimeline() {
   tlCtx.clearRect(0, 0, w, h);
   const max = Math.max(...timeline, 1);
   const barW = w / timeline.length - 2;
+  const accent = themeColor('--accent', '#38bdf8');
+  const accent2 = themeColor('--accent2', '#0ea5e9');
 
   timeline.forEach((v, i) => {
     const bh = (v / max) * (h - 10);
     const x = i * (barW + 2);
     const y = h - bh;
     const grad = tlCtx.createLinearGradient(0, y, 0, h);
-    grad.addColorStop(0, '#38bdf8');
-    grad.addColorStop(1, '#0ea5e9');
+    grad.addColorStop(0, accent);
+    grad.addColorStop(1, accent2);
     tlCtx.fillStyle = grad;
     tlCtx.beginPath();
     tlCtx.roundRect(x, y, barW, bh, 3);
@@ -590,22 +979,29 @@ function drawTypes() {
   const entries = Object.entries(typeCounts).sort((a,b) => b[1] - a[1]);
   const max = Math.max(...entries.map(e => e[1]), 1);
   const rowH = h / entries.length;
+  const trackColor = themeColor('--card', '#1e293b');
+  const labelColor = themeColor('--muted', '#94a3b8');
+  const valueColor = themeColor('--text', '#f1f5f9');
+  const barColors = [
+    themeColor('--crit', '#ef4444'), themeColor('--high', '#f97316'),
+    themeColor('--med', '#eab308'), themeColor('--accent', '#38bdf8'),
+    themeColor('--accent2', '#a78bfa'), themeColor('--ok', '#22c55e'), themeColor('--low', '#f472b6'),
+  ];
 
   entries.forEach(([name, val], i) => {
     const y = i * rowH + 4;
     const barW = (val / max) * (w - 110);
-    tyCtx.fillStyle = '#1e293b';
+    tyCtx.fillStyle = trackColor;
     tyCtx.fillRect(100, y, w - 110, rowH - 8);
-    const colors = ['#ef4444','#f97316','#eab308','#38bdf8','#a78bfa','#22c55e','#f472b6'];
-    tyCtx.fillStyle = colors[i % colors.length];
+    tyCtx.fillStyle = barColors[i % barColors.length];
     tyCtx.beginPath();
     tyCtx.roundRect(100, y, barW, rowH - 8, 4);
     tyCtx.fill();
-    tyCtx.fillStyle = '#94a3b8';
+    tyCtx.fillStyle = labelColor;
     tyCtx.font = '11px system-ui';
     tyCtx.textAlign = 'right';
     tyCtx.fillText(name, 94, y + rowH / 2 + 3);
-    tyCtx.fillStyle = '#f1f5f9';
+    tyCtx.fillStyle = valueColor;
     tyCtx.textAlign = 'left';
     tyCtx.fillText(val, 104 + barW, y + rowH / 2 + 3);
   });
@@ -779,6 +1175,13 @@ window.addEventListener('resize', () => {
   drawTimeline();
   drawTypes();
 });
+
+// Theme erst jetzt anwenden: applyTheme() zeichnet die Charts neu und
+// braucht dafür tlCanvas/tyCanvas, die erst oberhalb definiert wurden.
+buildThemeSwitcher();
+let savedTheme = 'default';
+try { savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'default'; } catch (e) {}
+applyTheme(savedTheme);
 </script>
 </body>
 </html>
