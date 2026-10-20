@@ -120,6 +120,8 @@ def verdict(cls, profile):
         return "Passwort-Raten auf SSH in Serie – typisches Botnetz-Verhalten."
     if types.get("MySQL-Probe"):
         return "Sucht offene Datenbanken: Kontakt mit dem MySQL-Honeypot auf Port 3306."
+    if types.get("Telnet-Probe"):
+        return "Telnet-Login mit Befehlen – typisch für Mirai-artige IoT-Botnetze."
     if types.get("SSH-Probe") or types.get("FTP-Probe"):
         return "Probiert Zugangsdaten am SSH-/FTP-Honeypot (Port 22/21) – typisches Botnetz-Verhalten."
     if any(port in (23, 2323) for port, _ in profile["ports"]):

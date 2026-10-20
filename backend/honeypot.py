@@ -1,5 +1,5 @@
-"""Gemeinsame Basis der Honeypots (MySQL, SSH, FTP): Port belegen, Verbindungen begrenzen und
-Login-Versuche als Event speichern. Jeder Login wird abgelehnt, es gibt keine Befehlsausführung.
+"""Gemeinsame Basis der Honeypots (MySQL, SSH, FTP, Telnet): Port belegen, Verbindungen begrenzen,
+Login-Versuche und Befehle als Event speichern. Ausgeführt wird nie etwas (Telnet/SSH: fakeshell.py).
 
 Nur IPv4, weil die API-Kürzung (/24) nur IPv4 kennt.
 """
@@ -15,12 +15,12 @@ PER_IP_PER_MIN = 30  # Flut einer einzelnen IP nicht vollständig speichern
 NO_LOGIN = "Verbindung ohne Login (Server-Erkennung)"
 
 
-def clean(value):
+def clean(value, limit=40):
     """Angreifer-Text für Detail und Top-Listen: „“ sind dort Trennzeichen, Länge begrenzt."""
     if isinstance(value, bytes):
         value = value.decode("utf-8", "replace")
     value = (value or "").replace("„", '"').replace("“", '"')
-    return "".join(c if c.isprintable() else "?" for c in value)[:40] or None
+    return "".join(c if c.isprintable() else "?" for c in value)[:limit] or None
 
 
 def attempt(user, label=None, value=None):
@@ -49,6 +49,10 @@ class Honeypot:
         if len(self.recent) > 10000:
             self.recent.clear()
         self.store.add_events([event(now, ip, self.TYPE, sev, "honeypot", self.PORT, detail)])
+
+    def command(self, ip, line):
+        """Befehl aus der Fake-Shell; store.py liest ihn aus dem Detail."""
+        self.record(ip, "crit", f"Befehl „{clean(line, 100)}“")
 
     def session(self, sock, ip):
         logins = 0

@@ -44,9 +44,10 @@
   <h2>5. Threat Monitor (Startseite)</h2>
   <p>Die Startseite zeigt die erkannten Angriffsversuche gegen diesen Server. Dafür werden aus den Logs
   Zeitpunkt, Angriffsart, Zielport, angefragter Pfad bzw. versuchter Benutzername und die IP-Adresse des
-  Angreifers ausgewertet und 8 Tage gespeichert. Die Lockdienste (Honeypots) für SSH (Port 22), FTP (Port 21) und
-  MySQL (Port 3306) bieten keinen echten Zugang: Sie lehnen jede Anmeldung ab und speichern zusätzlich das
-  versuchte Passwort bzw. den Fingerabdruck des angebotenen Schlüssels; auch diese werden angezeigt. Zur Bestimmung von Land, Stadt, Provider und Netz (ASN) wird die
+  Angreifers ausgewertet und 8 Tage gespeichert. Die Lockdienste (Honeypots) für SSH (Port 22), FTP (Port 21), Telnet
+  (Port 23) und MySQL (Port 3306) bieten keinen echten Zugang. Sie speichern zusätzlich das versuchte Passwort bzw.
+  den Fingerabdruck des angebotenen Schlüssels; SSH und Telnet simulieren nach der Anmeldung eine Kommandozeile,
+  die nichts ausführt, und speichern die eingegebenen Befehle. Auch diese Angaben werden angezeigt. Zur Bestimmung von Land, Stadt, Provider und Netz (ASN) wird die
   IP-Adresse an den Dienst <a href="https://ip-api.com" rel="noopener">ip-api.com</a> übermittelt.
   Öffentlich angezeigt werden IP-Adressen nur gekürzt (letzter Block durch „x“ ersetzt), sodass einzelne
   Anschlüsse nicht identifizierbar sind. Normale Besucher dieser Website erscheinen im Monitor nicht. Rechtsgrundlage

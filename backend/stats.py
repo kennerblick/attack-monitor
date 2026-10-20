@@ -1,7 +1,7 @@
 """Aggregierte Kennzahlen für ein Zeitfenster (1h / 24h / 7d)."""
 import time
 
-from store import LOGIN_PW, LOGIN_USER, LOGINS, PASSWORDS
+from store import COMMAND, COMMANDS, LOGIN_PW, LOGIN_USER, LOGINS, PASSWORDS
 
 # Fenster -> (Sekunden, Bucket-Größe der Zeitleiste)
 RANGES = {"1h": (3600, 60), "24h": (86400, 1800), "7d": (7 * 86400, 3 * 3600)}
@@ -49,6 +49,8 @@ def compute(store, range_key):
             f"SELECT COUNT(DISTINCT type || {LOGIN_USER}), COUNT(*) FROM events WHERE ts>=? AND {LOGINS}", (since,))[0])),
         "passwordsTop": [{"password": p, "n": n} for p, n in _top(
             store, f"SELECT {LOGIN_PW} p, COUNT(*) n FROM events WHERE ts>=? AND {PASSWORDS} GROUP BY p", since)],
+        "commandsTop": [{"command": c, "n": n} for c, n in _top(
+            store, f"SELECT {COMMAND} c, COUNT(*) n FROM events WHERE ts>=? AND {COMMANDS} GROUP BY c", since)],
         "pathsTop": [{"path": d.split(" → ")[0], "n": n} for d, n in _top(
             store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type IN ('Web-Probe','SQLi/RCE') "
                    "GROUP BY substr(detail, 1, instr(detail, ' → '))", since, 8)],

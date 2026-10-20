@@ -28,12 +28,15 @@ FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:9])}, g.lat, g.lon, g.cc, g
 GEO_EXTRA = ("org", "hosting", "proxy", "mobile")  # später ergänzte Spalten -> Migration in __init__
 
 # Login-Versuche (sshd und Honeypots), Detail jeweils "Login-Versuch als „name“ …" (honeypot.attempt)
-LOGIN_TYPES = "('SSH-Brute','MySQL-Probe','SSH-Probe','FTP-Probe')"
+LOGIN_TYPES = "('SSH-Brute','MySQL-Probe','SSH-Probe','FTP-Probe','Telnet-Probe')"
 LOGINS = f"type IN {LOGIN_TYPES} AND detail LIKE 'Login-Versuch als „%'"
 LOGIN_USER = "substr(detail, instr(detail, '„') + 1, instr(detail, '“') - instr(detail, '„') - 1)"
 # SSH-/FTP-Honeypot hängen " · Passwort „pw“" als letzten Teil an; 12 = len('· Passwort „')
-PASSWORDS = "type IN ('SSH-Probe','FTP-Probe') AND detail LIKE '%· Passwort „%'"
+PASSWORDS = "type IN ('SSH-Probe','FTP-Probe','Telnet-Probe') AND detail LIKE '%· Passwort „%'"
 LOGIN_PW = "substr(detail, instr(detail, '· Passwort „') + 12, length(detail) - instr(detail, '· Passwort „') - 12)"
+# Fake-Shell von SSH-/Telnet-Honeypot: Detail "Befehl „…“" (Honeypot.command); 8 = len('Befehl „')
+COMMANDS = "type IN ('SSH-Probe','Telnet-Probe') AND detail LIKE 'Befehl „%'"
+COMMAND = "substr(detail, 9, length(detail) - 9)"
 
 # Drilldown aus den Top-Listen: Art -> WHERE-Bedingung (Werte immer als Parameter)
 FILTERS = {
@@ -42,6 +45,7 @@ FILTERS = {
     "user": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE 'Login-Versuch als „' || ? || '“%'",
     "login": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE ? || '%'",
     "password": f"{PASSWORDS} AND {LOGIN_PW}=?",
+    "command": f"{COMMANDS} AND {COMMAND}=?",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
 }
 
@@ -130,6 +134,7 @@ class Store:
             "ports": top("SELECT port, COUNT(*) n FROM events WHERE ip=? AND type='Port-Scan' GROUP BY port"),
             "users": top(f"SELECT {LOGIN_USER} u, COUNT(*) n FROM events WHERE ip=? AND {LOGINS} GROUP BY u"),
             "passwords": top(f"SELECT {LOGIN_PW} p, COUNT(*) n FROM events WHERE ip=? AND {PASSWORDS} GROUP BY p"),
+            "commands": top(f"SELECT {COMMAND} c, COUNT(*) n FROM events WHERE ip=? AND {COMMANDS} GROUP BY c"),
             "paths": [(d.split(" → ")[0], c) for d, c in top(
                 "SELECT detail, COUNT(*) n FROM events WHERE ip=? AND type IN ('Web-Probe','SQLi/RCE') "
                 "GROUP BY substr(detail, 1, instr(detail, ' → '))")],

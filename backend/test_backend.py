@@ -10,6 +10,8 @@ import unittest
 import honeypot_ftp
 import honeypot_mysql
 import honeypot_ssh
+import honeypot_telnet
+import fakeshell
 import paramiko
 import intel
 import parsers
@@ -232,21 +234,29 @@ class SSHHoneypotTests(HoneypotBase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_password_and_key_are_recorded_and_denied(self):
+    def test_key_denied_password_accepted_commands_recorded(self):
         client = paramiko.Transport(("127.0.0.1", self.pot.port))
         client.start_client(timeout=10)
         self.assertEqual(client.remote_version, honeypot_ssh.VERSION)
-        with self.assertRaises(paramiko.AuthenticationException):
-            client.auth_password("root", "toor")
         key = paramiko.RSAKey.generate(1024)
         with self.assertRaises(paramiko.AuthenticationException):
-            client.auth_publickey("root", key)  # Benutzerwechsel je Verbindung lehnt SSH ab
+            client.auth_publickey("root", key)
+        client.auth_password("root", "toor")  # Benutzerwechsel je Verbindung lehnt SSH ab
+        with self.assertRaises(paramiko.ChannelException):
+            client.open_channel("direct-tcpip", ("example.org", 80), ("127.0.0.1", 1))  # kein offener Proxy
+        chan = client.open_session()
+        chan.exec_command("uname -a; /bin/busybox XQZ")
+        out = chan.makefile("rb").read().decode()
+        self.assertIn("armv7l", out)
+        self.assertIn("XQZ: applet not found", out)
         client.close()
-        rows = self.wait_events(2)
-        self.assertEqual(rows[0], ("SSH-Probe", "high", "Login-Versuch als „root“ · Passwort „toor“"))
-        self.assertEqual(rows[1][2], f"Login-Versuch als „root“ · Schlüssel ssh-rsa {honeypot_ssh.fingerprint(key)}")
-        self.assertEqual(len(rows), 2)  # kein zusätzliches "ohne Login"-Event
-        self.assertEqual(stats.compute(self.store, "24h")["passwordsTop"], [{"password": "toor", "n": 1}])
+        rows = self.wait_events(3)
+        self.assertEqual(rows[0][2], f"Login-Versuch als „root“ · Schlüssel ssh-rsa {honeypot_ssh.fingerprint(key)}")
+        self.assertEqual(rows[1], ("SSH-Probe", "high", "Login-Versuch als „root“ · Passwort „toor“"))
+        self.assertEqual(rows[2], ("SSH-Probe", "crit", "Befehl „uname -a; /bin/busybox XQZ“"))
+        s = stats.compute(self.store, "24h")
+        self.assertEqual(s["passwordsTop"], [{"password": "toor", "n": 1}])
+        self.assertEqual(s["commandsTop"], [{"command": "uname -a; /bin/busybox XQZ", "n": 1}])
 
     def test_host_key_is_kept(self):
         again = honeypot_ssh.host_key(os.path.join(self.tmp.name, "key"))
@@ -260,3 +270,34 @@ class MaskTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TelnetHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.start(honeypot_telnet.TelnetHoneypot(Store(":memory:"), port=0, host="127.0.0.1"))
+
+    def test_login_and_commands_are_recorded(self):
+        with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:
+            sock.sendall(b"\xff\xfd\x01\xff\xfb\x1fadmin\r\n")  # IAC-Verhandlung vor dem Namen
+            time.sleep(0.1)
+            sock.sendall(b"1234\r\nenable\r\n/bin/busybox MIRAI\r\nexit\r\n")
+            out = b""
+            while chunk := sock.recv(4096):
+                out += chunk
+        self.assertIn(b"MIRAI: applet not found", out)
+        self.assertEqual([r[1:] for r in self.wait_events(4)], [
+            ("high", "Login-Versuch als „admin“ · Passwort „1234“"), ("crit", "Befehl „enable“"),
+            ("crit", "Befehl „/bin/busybox MIRAI“"), ("crit", "Befehl „exit“")])
+
+
+class FakeShellTests(unittest.TestCase):
+    def test_responses(self):
+        self.assertEqual(fakeshell.respond("echo -e '\\x41\\x4b'"), "AK\r\n")
+        self.assertEqual(fakeshell.respond("cd /tmp; wget http://x/y.sh"), "wget: download timed out\r\n")
+        self.assertEqual(fakeshell.respond("foo"), "sh: foo: not found\r\n")
+        self.assertIsNone(fakeshell.respond("ls; exit"))
+
+    def test_lines_split_on_any_line_end(self):
+        chunks = iter([b"a\r", b"\nb\rc", b"\n", b""])
+        lines = fakeshell.Lines(lambda n: next(chunks))
+        self.assertEqual([lines.next() for _ in range(4)], ["a", "b", "c", None])

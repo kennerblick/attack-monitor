@@ -93,6 +93,7 @@ function renderProfile(p, ev) {
       ["Ports", p.ports.length ? chips(p.ports, ([port, n]) => `${port} <small>${service(port)}</small> ${num(n)}`) : null],
       ["Benutzer", p.users.length ? chips(p.users, ([u, n]) => `${esc(u)} ${num(n)}`) : null],
       ["Passwörter", p.passwords.length ? chips(p.passwords, ([pw, n]) => `${esc(pw)} ${num(n)}`) : null],
+      ["Befehle", p.commands.length ? chips(p.commands, ([c, n]) => `${esc(c)} ${num(n)}`) : null],
       ["Pfade", p.paths.length ? chips(p.paths, ([u, n]) => `${esc(u)} ${num(n)}`) : null],
       ["Netz /24", `${num(p.subnetIps)} angreifende IP${p.subnetIps === 1 ? "" : "s"} aus ${esc(p.ip.replace(/\.x$/, ".0/24"))}`],
       ["Sperre", `fail2ban: ${ban} · Sperrliste: ${p.denied ? "ja" : "nein"}`],

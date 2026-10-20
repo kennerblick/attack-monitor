@@ -10,7 +10,7 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 # Backend
 install -d -m 755 "$APP" /var/lib/attack-monitor
 dpkg -s python3-paramiko >/dev/null 2>&1 || apt-get install -y python3-paramiko  # SSH-Honeypot
-install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail,intel,visits,honeypot,honeypot_mysql,honeypot_ssh,honeypot_ftp}.py "$APP"/
+install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail,intel,visits,honeypot,honeypot_mysql,honeypot_ssh,honeypot_ftp,honeypot_telnet,fakeshell}.py "$APP"/
 install -m 644 "$REPO/deploy/attack-monitor.service" /etc/systemd/system/
 systemctl daemon-reload
 
