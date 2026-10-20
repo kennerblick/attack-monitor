@@ -71,7 +71,7 @@ class Store:
     def feed(self, since_id=0, limit=80):
         rows = self.query(
             f"SELECT e.{', e.'.join(FEED_COLUMNS[:9])}, g.lat, g.lon, g.cc, g.country, g.city, g.isp, g.asn "
-            "FROM events e LEFT JOIN geo g ON g.ip=e.ip WHERE e.id>? ORDER BY e.id DESC LIMIT ?",
+            "FROM events e LEFT JOIN geo g ON g.ip=e.ip WHERE e.id>? ORDER BY e.ts DESC, e.id DESC LIMIT ?",
             (since_id, limit))
         return [dict(zip(FEED_COLUMNS, r)) for r in rows]
 

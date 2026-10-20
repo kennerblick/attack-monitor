@@ -10,6 +10,7 @@ from datetime import datetime
 
 IPV4 = r'(?:\d{1,3}\.){3}\d{1,3}'
 SSH_PORT = 22022
+OWN_PATHS = ("/assets/", "/strudel/", "/lernen/", "/api/")
 
 WEB_RCE = re.compile(r'union.*select|eval\(|eval-stdin|base64_decode|/etc/passwd|cmd=|shell|\$\{jndi', re.I)
 WEB_PROBE = re.compile(
@@ -45,6 +46,8 @@ def parse_nginx_access(line):
     if not m:
         return None
     ip, stamp, method, path, status, agent = m.groups()
+    if path.startswith(OWN_PATHS):
+        return None  # eigene Seiten/Assets (z. B. /assets/vendor/) sind keine Probes
     if WEB_RCE.search(path):
         typ, sev = "SQLi/RCE", "crit"
     elif WEB_PROBE.search(path):

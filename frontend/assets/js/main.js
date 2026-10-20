@@ -51,13 +51,14 @@ async function pollFeed() {
     if (events.length) {
       const fresh = state.lastId > 0;
       if (fresh) state.lastFresh = Date.now();
-      state.lastId = events[0].id;
+      // IDs sind beim Nachladen alter Logs nicht chronologisch: Merker = höchste ID, Anzeige nach Zeit
+      state.lastId = Math.max(state.lastId, ...events.map(e => e.id));
       // Geo-Daten kommen asynchron nach: bekannte Events durch neuere Fassung ersetzen
       const byId = new Map(state.events.map(e => [e.id, e]));
       events.forEach(e => byId.set(e.id, e));
-      state.events = [...byId.values()].sort((a, b) => b.id - a.id).slice(0, 80);
+      state.events = [...byId.values()].sort((a, b) => b.ts - a.ts || b.id - a.id).slice(0, 80);
       // Älteste zuerst abspielen, verteilt über das Abfrageintervall
-      [...events].reverse().forEach((ev, i, list) => setTimeout(() => {
+      [...events].sort((a, b) => a.ts - b.ts).forEach((ev, i, list) => setTimeout(() => {
         globe?.addAttack(ev);
         if (fresh && i === list.length - 1) toast(ev);
       }, fresh ? (i / list.length) * 1800 : i * 160));

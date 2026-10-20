@@ -37,6 +37,8 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parsers.parse_nginx_access(probe)["type"], "SQLi/RCE")
         normal = '1.2.3.4 - - [20/Oct/2026:07:53:29 +0200] "GET /strudel/ HTTP/2.0" 200 9 "-" "Mozilla"'
         self.assertIsNone(parsers.parse_nginx_access(normal))
+        own = '1.2.3.4 - - [20/Oct/2026:07:53:29 +0200] "GET /assets/vendor/globe.gl.min.js HTTP/2.0" 200 9 "-" "Mozilla"'
+        self.assertIsNone(parsers.parse_nginx_access(own))
 
     def test_nginx_ssl_error(self):
         ev = parsers.parse_nginx_error("2026/10/20 01:39:08 [crit] 549#549: *10928 SSL_do_handshake() failed "
@@ -64,7 +66,7 @@ class StoreStatsTests(unittest.TestCase):
     def test_feed_joins_geo(self):
         feed = self.store.feed()
         self.assertEqual(len(feed), 3)
-        self.assertEqual([e["cc"] for e in feed], [None, "DE", "DE"])  # neueste zuerst
+        self.assertEqual([e["cc"] for e in feed], ["DE", "DE", None])  # neueste (nach ts) zuerst
         self.assertEqual(self.store.ips_without_geo(), ["5.6.7.8"])
 
     def test_stats(self):
