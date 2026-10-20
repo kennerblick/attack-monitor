@@ -54,6 +54,11 @@ SSH erlaubt nur Session-Kanäle, kein Port-Forwarding (sonst offener Proxy).
 - Telnet spielt den Login-Prompt eines Routers und filtert die Telnet-Optionsverhandlung heraus.
   portsentry überwacht die Ports 21, 22 und 23 nicht mehr, weil sie belegt sind.
 
+Die Honeypots laufen als eigener Dienst `attack-honeypots.service` unter dem Benutzer `attack-honeypot`:
+nur `CAP_NET_BIND_SERVICE`, `NoNewPrivileges`, Dateisystem schreibgeschützt bis auf `/var/lib/attack-monitor`,
+Syscall-Filter, `MemoryMax=300M`. Ein Fehler im Protokoll-Code gibt so nicht root preis; der Hauptdienst
+(Logs, fail2ban, API) läuft weiter als root. Beide teilen die SQLite-Datei über die Gruppe `attack-monitor`.
+
 Passwörter und Befehle erscheinen öffentlich (Detail, Top 10, IP-Profil), Passwörter gekürzt auf 40 Zeichen. Alle Honeypots
 lauschen nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nehmen je höchstens 50 gleichzeitige
 Verbindungen an und speichern höchstens 30 Events pro IP und Minute. Ist ein Port belegt, versuchen

@@ -21,11 +21,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import geo
-from honeypot_ftp import FTPHoneypot
-from honeypot_mysql import MySQLHoneypot
-from honeypot_postgres import PostgresHoneypot
-from honeypot_ssh import SSHHoneypot
-from honeypot_telnet import TelnetHoneypot
 import intel
 import stats
 import tail
@@ -146,7 +141,5 @@ if __name__ == "__main__":
     threading.Thread(target=geo.worker, args=(store,), daemon=True).start()
     counter = visits.Visits(store)
     threading.Thread(target=tail.run, args=(store, counter), daemon=True).start()
-    for pot in (MySQLHoneypot(store), PostgresHoneypot(store), SSHHoneypot(store), FTPHoneypot(store), TelnetHoneypot(store)):
-        threading.Thread(target=pot.serve, daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
     ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter)).serve_forever()

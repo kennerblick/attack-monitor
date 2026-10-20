@@ -52,7 +52,8 @@ FILTERS = {
 
 class Store:
     def __init__(self, path):
-        self.db = sqlite3.connect(path, check_same_thread=False)
+        # Zwei Prozesse schreiben (server.py, honeypots.py): bei Sperre bis 10 s warten statt Fehler
+        self.db = sqlite3.connect(path, timeout=10, check_same_thread=False)
         self.db.executescript(SCHEMA)
         self.db.execute("PRAGMA journal_mode=WAL")
         have = {r[1] for r in self.db.execute("PRAGMA table_info(geo)")}

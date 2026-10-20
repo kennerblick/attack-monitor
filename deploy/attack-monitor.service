@@ -8,6 +8,9 @@ ExecStart=/usr/bin/python3 /opt/attack-monitor/server.py
 Restart=always
 RestartSec=3
 User=root
+# Datenbank teilt sich der Prozess mit attack-honeypots.service (Gruppe attack-monitor, Modus 660)
+Group=attack-monitor
+UMask=0007
 
 [Install]
 WantedBy=multi-user.target

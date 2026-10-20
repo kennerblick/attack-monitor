@@ -6,10 +6,13 @@ Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
 
-## Backend (`backend/`, stdlib + `python3-paramiko`, läuft als root wegen Log-Rechten und Port 21/22)
+## Backend (`backend/`, stdlib + `python3-paramiko`)
+Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als root (Logs, fail2ban),
+`honeypots.py` als `attack-honeypot` mit nur `CAP_NET_BIND_SERVICE` und systemd-Sandbox.
 | Datei | Zweck |
 |---|---|
-| `server.py` | HTTP-API, IP-Maskierung, fail2ban-/Sperrlisten-Status, Einstieg |
+| `server.py` | HTTP-API, IP-Maskierung, fail2ban-/Sperrlisten-Status, Einstieg Hauptdienst |
+| `honeypots.py` | Einstieg Honeypot-Dienst: startet alle Honeypots |
 | `intel.py` | IP-Profil: rDNS mit Timeout, Einstufung (bekannte Scanner/Clouds/VPN, hosting/mobile), Einschätzung |
 | `tail.py` | Logs fortlaufend lesen, 7-Tage-Seed beim ersten Start, stündliches Prune |
 | `parsers.py` | ein Parser je Quelle → Event-Dict (Zeitstempel aus der Logzeile) |
@@ -51,5 +54,5 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
 | `impressum.html`, `datenschutz.html` | Rechtstexte |
 
 ## Deploy
-`deploy/deploy.sh` (root), systemd-Unit `deploy/attack-monitor.service`, fail2ban-Filter in `deploy/`,
+`deploy/deploy.sh` (root), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
 nginx-Snippet `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`).
