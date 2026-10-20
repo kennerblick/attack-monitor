@@ -92,11 +92,18 @@
 .own-track input { accent-color: var(--genre); }
 
 .grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; }
-.macros { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.macros { display: grid; gap: 8px; }
 .macro, .tempo { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+/* Eine Zeile je Regler über die volle Breite: mehr Weg pro Prozent, feiner einstellbar */
+.macro { grid-template-columns: 150px minmax(0, 1fr) 76px; align-items: center; gap: 14px; padding: 10px 14px; }
 .macro span, .tempo span { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
-.macro output { font: 700 13px var(--mono); color: var(--ink); }
+.macro output { font: 700 13px var(--mono); color: var(--ink); text-align: right; }
 input[type=range] { accent-color: var(--genre); width: 100%; }
+.macro input[type=range] { appearance: none; height: 28px; background: none; cursor: pointer; }
+.macro input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line-strong); }
+.macro input[type=range]::-moz-range-track { height: 8px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line-strong); }
+.macro input[type=range]::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: var(--genre); border: 2px solid #060a14; }
+.macro input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--genre); border: 2px solid #060a14; }
 .keys { display: flex; gap: 6px; margin-bottom: 10px; }
 .keys button {
   flex: 1; padding: 10px 0; border-radius: 10px; cursor: pointer; font: 700 14px var(--mono);
@@ -138,7 +145,8 @@ input[type=range] { accent-color: var(--genre); width: 100%; }
   .machine { padding: 16px; }
   .genres { grid-template-columns: repeat(3, 1fr); }
   .grid2 { grid-template-columns: 1fr; }
-  .macros { grid-template-columns: repeat(2, 1fr); }
+  .macro { grid-template-columns: 1fr 64px; }
+  .macro input[type=range] { grid-column: 1 / -1; grid-row: 2; }
   .pads { grid-template-columns: repeat(3, 1fr); }
   .deck { flex-wrap: wrap; }
   .scope { flex-basis: 100%; height: 44px; }
