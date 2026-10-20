@@ -16,10 +16,12 @@ Logs (syslog, auth, nginx access/error, fail2ban) → `tail.py` (Offsets in DB) 
 | `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
+| `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py` | Unit-Tests (`python3 -m unittest`) |
 
 DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
-`geo(ip, lat, lon, cc, country, city, isp, asn, fetched, org, hosting, proxy, mobile)`, `offsets(path, inode, pos)`.
+`geo(ip, lat, lon, cc, country, city, isp, asn, fetched, org, hosting, proxy, mobile)`, `offsets(path, inode, pos)`,
+`visits(day, ts, visitor, path, ref)`, `humans(day, visitor)` (Besucher mit Ressourcen-Abruf).
 
 ## Frontend (`frontend/` → `/var/www/lernseite/`)
 | Pfad | Zweck |
@@ -36,9 +38,11 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |
 | `assets/vendor/` | globe.gl 2.46.2, topojson-client 3.1.0, world-atlas 2.0.2, @strudel/web 1.3.0 (+ clockworker) |
 | `strudel/` | Groove Machine: `genres.js` (Presets), `code.js` (Code-Generator), `live.js` (Live-Code mit Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`) |
+| `besucher/` | interne Besucherstatistik (hinter Authelia): KPIs, Tages-Chart, Monat/Jahr, Seiten, Herkunft |
 | `lernen/index.php` | Übersicht der Lernseiten (liest `../*/index.html`) |
 | `attack-monitor/` | Weiterleitung alter Links auf `/` |
 | `impressum.html`, `datenschutz.html` | Rechtstexte |
 
 ## Deploy
-`deploy/deploy.sh` (root), systemd-Unit `deploy/attack-monitor.service`, fail2ban-Filter in `deploy/`.
+`deploy/deploy.sh` (root), systemd-Unit `deploy/attack-monitor.service`, fail2ban-Filter in `deploy/`,
+nginx-Snippet `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`).
