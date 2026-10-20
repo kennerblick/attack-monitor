@@ -1,0 +1,67 @@
+/* Gemeinsame Basis für alle Seiten von 3lis.de: Farben, Kopf- und Fußzeile. */
+:root {
+  color-scheme: dark;
+  --bg: #060a14;
+  --surface: #0f1729;
+  --surface-2: #131d33;
+  --line: #1e2a44;
+  --line-strong: #2c3b5c;
+  --ink: #e7ecf5;
+  --ink-2: #a3afc4;
+  --ink-3: #6b7894;
+  --accent: #4fd1ff;
+  --live: #0ca30c;
+  --critical: #d03b3b;
+  --radius: 14px;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1200px 700px at 50% -10%, #12224a 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.topbar {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 14px 24px; border-bottom: 1px solid var(--line);
+  background: rgba(6, 10, 20, .72); backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { display: flex; align-items: center; gap: 12px; color: var(--ink); font-weight: 800; letter-spacing: .08em; }
+.brand:hover { text-decoration: none; }
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: conic-gradient(from 210deg, #3987e5, #9085e9, #4fd1ff, #3987e5);
+  color: #050913; font-size: 15px; box-shadow: 0 0 24px #3987e566;
+}
+.brand small { display: block; font-weight: 500; letter-spacing: .18em; font-size: 10px; color: var(--ink-3); }
+.nav { display: flex; gap: 6px; margin-left: auto; }
+.nav a {
+  color: var(--ink-2); padding: 7px 12px; border-radius: 9px; border: 1px solid transparent; font-weight: 600;
+}
+.nav a:hover, .nav a[aria-current] { color: var(--ink); border-color: var(--line-strong); text-decoration: none; background: var(--surface); }
+
+@media (max-width: 900px) {
+  .topbar { position: static; padding: 12px 16px; gap: 10px 14px; }
+}
+
+.footer {
+  display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between;
+  padding: 22px 24px 30px; color: var(--ink-3); font-size: 12px; border-top: 1px solid var(--line);
+}
+.footer a { color: var(--ink-2); }
+
+/* Textseiten (Impressum, Datenschutz) */
+.prose { max-width: 780px; margin: 40px auto; padding: 0 16px; }
+.prose h1 { font-size: 32px; margin: 0 0 24px; }
+.prose h2 { font-size: 18px; margin: 32px 0 8px; color: var(--ink); }
+.prose p, .prose li { color: var(--ink-2); }
+.prose .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; }

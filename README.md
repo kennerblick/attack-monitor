@@ -1,89 +1,62 @@
-# 3lis.de – Live Attack Monitor
+# 3lis.de – Website mit Live Threat Monitor
 
-Modernes Live-Dashboard für Angriffe auf den Server (analog zur [Elements-Lernapp](https://github.com/kennerblick/elements)).
+Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server:
+ein 3D-Globus mit Angriffsherden und Live-Bögen, ein Live-Feed mit Detailansicht, Kennzahlen,
+Top-Listen (Länder, ASN, Ports, SSH-Benutzernamen, Pfade, Jails), eine Zeitleiste und eine
+Wochen-Heatmap. Dazu kommen die Musikseite **Strudel Groove Machine**, die Übersicht der
+Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
 
-## Features
+## Schnellstart
 
-- Live-Feed (IP, Typ, Status) aus nginx + auth.log + fail2ban
-- Echte Weltkarte (Leaflet + dunkle CartoDB-Kacheln), zoom- und pan-bar
-- Angriffe werden per IP-Geolokalisierung (ip-api.com, im Backend gecacht) an ihrer echten Position angezeigt, inkl. animiertem Bogen zum Zielserver
-- Statistik-Karten + Diagramme
-- fail2ban-Jails für SSH (Port 22022) + Web-Probes
-- Reine Client-Seite + kleines Python-Backend
+```bash
+cd backend && python3 -m unittest -v      # Tests
+sudo deploy/deploy.sh                      # Backend + Website ausrollen
+```
 
-## Externe Abhängigkeiten
+Das Deploy-Skript kopiert das Backend nach `/opt/attack-monitor` und startet den Dienst neu. Die
+Website legt es in `/var/www/lernseite` ab. Die alte `index.php` wird nach `/var/backups/` verschoben,
+weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Webroot bleiben unberührt.
 
-- **Frontend** lädt Leaflet (JS/CSS) sowie Kartenkacheln von `unpkg.com` und `basemaps.cartocdn.com` per CDN.
-- **Backend** ruft für neu gesehene Angreifer-IPs `ip-api.com` auf (kostenlos, kein Key, ~45 Req/Min-Limit, Anfragen laufen asynchron über eine Queue und werden dauerhaft pro IP gecacht). Beim Start ermittelt es außerdem einmalig die eigene Standort-Position für den Zielserver-Marker auf der Karte.
-- Damit werden Angreifer-IPs an einen externen Drittanbieter (ip-api.com) übertragen. Falls das nicht gewünscht ist, `geolocate()` in `backend/server.py` deaktivieren (liefert dann `None`, die Karte zeigt nur noch die Demo-Simulation für nicht lokalisierte Events).
+## Datenquellen
+
+| Quelle | Log | Event-Typ |
+|---|---|---|
+| portsentry | `/var/log/syslog` | Port-Scan (mit Zielport) |
+| sshd | `/var/log/auth.log` | SSH-Brute (Benutzername) |
+| nginx | `access.log` / `error.log` | Web-Probe, SQLi/RCE, Rate-Limit, TLS-Scan |
+| fail2ban | `/var/log/fail2ban.log` | fail2ban-Ban (nur `Ban`, nicht `Unban` und nicht `Restore Ban`) |
+
+Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
+Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.
+Danach setzt es an gespeicherten Offsets fort.
+
+## Konfiguration
+
+| Variable | Default | Zweck |
+|---|---|---|
+| `ATTACK_DB` | `/var/lib/attack-monitor/events.db` | SQLite-Datei |
+| `ATTACK_PORT` | `8099` | API-Port (nur 127.0.0.1) |
+
+nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled/default`).
+
+## Datenschutz und externe Dienste
+
+- Angreifer-IPs werden in der API auf /24 gekürzt (`1.2.3.x`), auch in Detailtexten.
+- Geolokalisierung über den Batch-Endpoint von `ip-api.com`: kostenlos, ohne Key, pro IP nur einmal.
+- Alle Bibliotheken (globe.gl, topojson, Länderdaten, @strudel/web) liegen versioniert in
+  `frontend/assets/vendor/`. Es gibt keine CDNs und keine Google Fonts.
+- Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`.
 
 ## Struktur
 
-```
-attack-monitor/
-├── frontend/index.html
-├── backend/server.py
-├── deploy/
-│   ├── jail.local
-│   ├── nginx-botsearch.conf
-│   ├── nginx-req-limit.conf
-│   └── attack-monitor.service
-└── README.md
-```
+Siehe [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md).
 
-## Installation (Debian 11 / Ubuntu)
+## Test im Browser
 
-```bash
-git clone https://github.com/kennerblick/attack-monitor.git
-cd attack-monitor
-
-# Backend
-sudo mkdir -p /opt/attack-monitor
-sudo cp backend/server.py /opt/attack-monitor/
-sudo cp deploy/attack-monitor.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now attack-monitor
-
-# fail2ban
-sudo cp deploy/nginx-botsearch.conf /etc/fail2ban/filter.d/
-sudo cp deploy/nginx-req-limit.conf /etc/fail2ban/filter.d/
-sudo cp deploy/jail.local /etc/fail2ban/jail.local
-sudo systemctl restart fail2ban
-
-# Frontend
-sudo mkdir -p /var/www/html/attack-monitor
-sudo cp frontend/index.html /var/www/html/attack-monitor/
-```
-
-### nginx (in den 443-Server-Block)
-
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:8099/api/;
-}
-location /attack-monitor/ {
-    alias /var/www/html/attack-monitor/;
-}
-location ~ /\.git {
-    deny all;
-    return 404;
-}
-```
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-## Test
-
-```bash
-curl -s http://127.0.0.1:8099/api/attacks | head -c 200
-curl -s https://3lis.de/api/attacks | head -c 200
-sudo fail2ban-client status
-```
-
-Dashboard: `https://3lis.de/attack-monitor/`
+Der Strudel-Klang lässt sich headless prüfen: Puppeteer mit
+`--autoplay-policy=no-user-gesture-required` aufrufen und `getAnalyzerData('frequency', 1)` auslesen.
+Das Pattern wird mit `.analyze(1)` erzeugt.
 
 ## Lizenz
 
-MIT
+MIT. Mitgelieferte Bibliotheken behalten ihre eigene Lizenz: Strudel AGPL-3.0, globe.gl MIT.
