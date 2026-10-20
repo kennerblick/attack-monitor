@@ -1,12 +1,12 @@
 # Projektkarte
 
 ## Datenfluss
-Logs (syslog, auth, nginx access/error, fail2ban) und Honeypot :3306 → `tail.py`/`honeypot.py` (Offsets in DB) → `parsers.py` → SQLite
+Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:22/:21 → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
 
-## Backend (`backend/`, stdlib only, läuft als root wegen Log-Rechten)
+## Backend (`backend/`, stdlib + `python3-paramiko`, läuft als root wegen Log-Rechten und Port 21/22)
 | Datei | Zweck |
 |---|---|
 | `server.py` | HTTP-API, IP-Maskierung, fail2ban-/Sperrlisten-Status, Einstieg |
@@ -16,7 +16,10 @@ Logs (syslog, auth, nginx access/error, fail2ban) und Honeypot :3306 → `tail.p
 | `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
-| `honeypot.py` | MySQL-Honeypot :3306 (Begrüßung, Login mitlesen, immer „Access denied“) → Event `MySQL-Probe` |
+| `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`-Detailtext (Benutzer, Passwort) |
+| `honeypot_mysql.py` | MySQL :3306 (MariaDB-Begrüßung, Login mitlesen, „Access denied“) → `MySQL-Probe` |
+| `honeypot_ssh.py` | SSH :22 via paramiko (Passwort/Schlüssel mitlesen, immer abgelehnt, fester Host-Key) → `SSH-Probe` |
+| `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py` | Unit-Tests (`python3 -m unittest`) |
 

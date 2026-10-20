@@ -44,6 +44,8 @@ export function renderTypes(stats, active, onToggle, onPick) {
   $("legend").querySelectorAll(".chip").forEach(b => { b.onclick = () => onToggle(b.dataset.type); });
 }
 
+const LOGIN_SOURCE = { "SSH-Brute": "SSH", "SSH-Probe": "SSH :22", "FTP-Probe": "FTP", "MySQL-Probe": "MySQL" };
+
 // onPick(kind, value, title): öffnet die Vorgänge zu einem Eintrag (kind = Filter in /api/events)
 export function renderLists(stats, onCountry, onPick) {
   bars($("countries"), stats.countriesTop.slice(0, 8), r => ({ icon: `<span class="flag">${flag(r.cc)}</span>`, name: esc(r.country) }),
@@ -53,16 +55,18 @@ export function renderLists(stats, onCountry, onPick) {
   bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${r.port}<small>${service(r.port)}</small>`, color: "#3987e5" }),
     r => onPick("port", r.port, `Port ${r.port} ${service(r.port)}`));
   bars($("users"), stats.usersTop, r => ({
-    icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${r.type === "MySQL-Probe" ? "MySQL" : "SSH"}</small>`,
+    icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${LOGIN_SOURCE[r.type]}</small>`,
     color: typeInfo(r.type).color,
-  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH und MySQL)`));
+  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH, FTP und MySQL)`));
   const rest = stats.usersAll && stats.usersAll.names - stats.usersTop.length;
   if (rest > 0) {
     const shown = stats.usersTop.reduce((sum, r) => sum + r.n, 0);
     $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} weitere Namen · ` +
       `${num(stats.usersAll.n - shown)} Versuche <span class="val">alle ${num(stats.usersAll.n)} →</span></li>`);
-    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH und MySQL)");
+    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH, FTP und MySQL)");
   }
+  bars($("passwords"), stats.passwordsTop, r => ({ icon: '<span class="flag">🔑</span>', name: esc(r.password), color: "#e66767" }),
+    r => onPick("password", r.password, `Passwort „${esc(r.password)}“ (SSH- und FTP-Honeypot)`));
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
     r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
   bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }),

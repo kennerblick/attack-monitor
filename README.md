@@ -3,7 +3,7 @@
 Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server:
 ein interaktiver 3D-Globus (Länder nach Angriffen eingefärbt, Herde als Säulen, Live-Bögen, Tooltips,
 Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länder, ASN, Ports,
-SSH-Benutzernamen, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
+Login-Benutzernamen, Passwörter, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
 **Strudel Groove Machine** (6 Genres mit je 6–8 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen), die
@@ -28,13 +28,23 @@ weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Web
 | sshd | `/var/log/auth.log` | SSH-Brute (Benutzername) |
 | nginx | `access.log` / `error.log` | Web-Probe, SQLi/RCE, Rate-Limit, TLS-Scan |
 | fail2ban | `/var/log/fail2ban.log` | fail2ban-Ban (nur `Ban`, nicht `Unban` und nicht `Restore Ban`) |
-| MySQL-Honeypot | Port 3306 (`backend/honeypot.py`) | MySQL-Probe (Benutzer, Datenbank; Login wird immer abgelehnt) |
+| MySQL-Honeypot | Port 3306 (`backend/honeypot_mysql.py`) | MySQL-Probe (Benutzer, Datenbank) |
+| SSH-Honeypot | Port 22 (`backend/honeypot_ssh.py`) | SSH-Probe (Benutzer, Passwort bzw. Schlüssel-Fingerprint; auch scp/sftp) |
+| FTP-Honeypot | Port 21 (`backend/honeypot_ftp.py`) | FTP-Probe (Benutzer, Passwort) |
 
-Der Honeypot spielt die Begrüßung eines MariaDB-Servers und schneidet das Login-Paket mit. Es gibt
-keine Datenbank und keine Befehle. Passwörter sieht er nicht, weil Clients nur einen Hash schicken.
-Er lauscht nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nimmt höchstens 50 gleichzeitige
-Verbindungen an und speichert höchstens 30 Events pro IP und Minute. Ist der Port belegt, versucht
-er es jede Minute erneut. Die echte MariaDB ist deshalb abgeschaltet.
+Die Honeypots lehnen jede Anmeldung ab; es gibt keine Datenbank, keine Shell, keine Dateien und keine
+Befehle. Mitgeschnitten wird nur der Login-Versuch, Verbindungen ohne Login zählen als „Server-Erkennung“.
+- MySQL spielt die MariaDB-Begrüßung. Passwörter sieht er nicht, weil Clients nur einen Hash schicken.
+  Die echte MariaDB ist deshalb abgeschaltet.
+- SSH nutzt paramiko (`python3-paramiko`), meldet sich als OpenSSH 9.2 und hält einen festen RSA-Host-Key
+  in `/var/lib/attack-monitor/ssh_host_rsa_key`. Das echte sshd läuft auf 22022. Wie OpenSSH lehnt er
+  einen Benutzerwechsel innerhalb einer Verbindung ab; nach 30 s legt er auf.
+- FTP spielt vsftpd und liest `USER`/`PASS` im Klartext, höchstens 20 Befehle je Verbindung.
+
+Passwörter erscheinen öffentlich (Detail, Top 10, IP-Profil), gekürzt auf 40 Zeichen. Alle Honeypots
+lauschen nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nehmen je höchstens 50 gleichzeitige
+Verbindungen an und speichern höchstens 30 Events pro IP und Minute. Ist ein Port belegt, versuchen
+sie es jede Minute erneut.
 
 Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.
@@ -63,6 +73,7 @@ einmalig die alten gemischten `access.log*` nach, bis zum Beginn des eigenen Log
 |---|---|---|
 | `ATTACK_DB` | `/var/lib/attack-monitor/events.db` | SQLite-Datei |
 | `ATTACK_PORT` | `8099` | API-Port (nur 127.0.0.1) |
+| `ATTACK_SSH_KEY` | `/var/lib/attack-monitor/ssh_host_rsa_key` | Host-Key des SSH-Honeypots (wird beim ersten Start erzeugt) |
 
 nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled/default`).
 

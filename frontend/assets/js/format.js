@@ -9,6 +9,8 @@ export const TYPES = [
   { key: "Rate-Limit", label: "Rate-Limit", color: "#008300" },
   { key: "SSL-Scan", label: "TLS-Scan", color: "#9085e9" },
   { key: "MySQL-Probe", label: "MySQL-Honeypot", color: "#a3a948" },
+  { key: "SSH-Probe", label: "SSH-Honeypot", color: "#e66767" },
+  { key: "FTP-Probe", label: "FTP-Honeypot", color: "#b5835a" },
 ];
 const BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
 export const typeInfo = key => BY_KEY[key] || { key, label: key, color: "#6b7894" };

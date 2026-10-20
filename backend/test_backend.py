@@ -7,7 +7,10 @@ import threading
 import time
 import unittest
 
-import honeypot
+import honeypot_ftp
+import honeypot_mysql
+import honeypot_ssh
+import paramiko
 import intel
 import parsers
 import stats
@@ -162,34 +165,38 @@ class VisitsTests(unittest.TestCase):
         self.assertEqual(s["pages"][0], ("/", 3))
 
 
-class HoneypotTests(unittest.TestCase):
-    def setUp(self):
-        self.store = Store(":memory:")
-        self.pot = honeypot.Honeypot(self.store, port=0, host="127.0.0.1")
+class HoneypotBase(unittest.TestCase):
+    def start(self, pot):
+        self.store, self.pot = pot.store, pot
         ready = threading.Event()
-        threading.Thread(target=self.pot.serve, args=(ready,), daemon=True).start()
+        threading.Thread(target=pot.serve, args=(ready,), daemon=True).start()
         ready.wait(5)
 
-    def connect(self):
-        sock = socket.create_connection(("127.0.0.1", self.pot.port), timeout=5)
-        _, greeting = honeypot._read_packet(sock)
-        self.assertIn(b"MariaDB", greeting)
-        return sock
-
     def wait_events(self, n):
-        for _ in range(50):
-            rows = self.store.query("SELECT type, sev, detail FROM events")
+        for _ in range(100):
+            rows = self.store.query("SELECT type, sev, detail FROM events ORDER BY id")
             if len(rows) >= n:
                 return rows
             time.sleep(0.05)
         return rows
 
+
+class MySQLHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.start(honeypot_mysql.MySQLHoneypot(Store(":memory:"), port=0, host="127.0.0.1"))
+
+    def connect(self):
+        sock = socket.create_connection(("127.0.0.1", self.pot.port), timeout=5)
+        _, greeting = honeypot_mysql._read_packet(sock)
+        self.assertIn(b"MariaDB", greeting)
+        return sock
+
     def test_login_is_recorded_and_denied(self):
         login = (struct.pack("<I", 0x0008A20F) + struct.pack("<I", 1 << 24) + b"\x21" + b"\0" * 23
                  + b"root\0" + bytes([20]) + b"x" * 20 + b"wordpress\0" + b"mysql_native_password\0")
         with self.connect() as sock:
-            sock.sendall(honeypot.packet(1, login))
-            seq, reply = honeypot._read_packet(sock)
+            sock.sendall(honeypot_mysql.packet(1, login))
+            seq, reply = honeypot_mysql._read_packet(sock)
         self.assertEqual((seq, reply[:1], reply[3:9]), (2, b"\xff", b"#28000"))
         self.assertEqual(self.wait_events(1), [("MySQL-Probe", "high", "Login-Versuch als „root“ · DB „wordpress“")])
         self.assertEqual(stats.compute(self.store, "24h")["usersTop"][0]["user"], "root")
@@ -197,6 +204,53 @@ class HoneypotTests(unittest.TestCase):
     def test_scan_without_login(self):
         self.connect().close()
         self.assertEqual(self.wait_events(1)[0][1:], ("low", "Verbindung ohne Login (Server-Erkennung)"))
+
+
+class FTPHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.start(honeypot_ftp.FTPHoneypot(Store(":memory:"), port=0, host="127.0.0.1"))
+
+    def test_login_is_recorded_and_denied(self):
+        with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:
+            lines = sock.makefile("rb")
+            self.assertTrue(lines.readline().startswith(b"220"))
+            sock.sendall("USER admin\r\nPASS 123„456“\r\nQUIT\r\n".encode())
+            replies = [lines.readline()[:3] for _ in range(3)]
+        self.assertEqual(replies, [b"331", b"530", b"221"])
+        self.assertEqual(self.wait_events(1), [("FTP-Probe", "high", 'Login-Versuch als „admin“ · Passwort „123"456"“')])
+        s = stats.compute(self.store, "24h")
+        self.assertEqual(s["passwordsTop"], [{"password": '123"456"', "n": 1}])
+        self.assertEqual(self.store.events_where("password", '123"456"', 0)[0], 1)
+
+
+class SSHHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.start(honeypot_ssh.SSHHoneypot(Store(":memory:"), port=0, host="127.0.0.1",
+                                            key_path=os.path.join(self.tmp.name, "key")))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_password_and_key_are_recorded_and_denied(self):
+        client = paramiko.Transport(("127.0.0.1", self.pot.port))
+        client.start_client(timeout=10)
+        self.assertEqual(client.remote_version, honeypot_ssh.VERSION)
+        with self.assertRaises(paramiko.AuthenticationException):
+            client.auth_password("root", "toor")
+        key = paramiko.RSAKey.generate(1024)
+        with self.assertRaises(paramiko.AuthenticationException):
+            client.auth_publickey("root", key)  # Benutzerwechsel je Verbindung lehnt SSH ab
+        client.close()
+        rows = self.wait_events(2)
+        self.assertEqual(rows[0], ("SSH-Probe", "high", "Login-Versuch als „root“ · Passwort „toor“"))
+        self.assertEqual(rows[1][2], f"Login-Versuch als „root“ · Schlüssel ssh-rsa {honeypot_ssh.fingerprint(key)}")
+        self.assertEqual(len(rows), 2)  # kein zusätzliches "ohne Login"-Event
+        self.assertEqual(stats.compute(self.store, "24h")["passwordsTop"], [{"password": "toor", "n": 1}])
+
+    def test_host_key_is_kept(self):
+        again = honeypot_ssh.host_key(os.path.join(self.tmp.name, "key"))
+        self.assertEqual(again.asbytes(), self.pot.key.asbytes())
 
 
 class MaskTests(unittest.TestCase):
