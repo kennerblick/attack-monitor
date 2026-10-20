@@ -2,6 +2,7 @@
 import time
 import unittest
 
+import intel
 import parsers
 import stats
 from server import mask
@@ -61,7 +62,7 @@ class StoreStatsTests(unittest.TestCase):
             parsers.event(now - 20, "1.2.3.4", "Port-Scan", "med", "portsentry", 22, "TCP SYN"),
             parsers.event(now - 30, "5.6.7.8", "SSH-Brute", "high", "sshd", 22022, "Login-Versuch als „root“"),
         ])
-        self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", now)])
+        self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", now, "Org", 1, 0, 0)])
 
     def test_feed_joins_geo(self):
         feed = self.store.feed()
@@ -75,6 +76,39 @@ class StoreStatsTests(unittest.TestCase):
         self.assertEqual(s["portsTop"], [{"port": 22, "n": 2}])
         self.assertEqual(s["usersTop"], [{"user": "root", "n": 1}])
         self.assertEqual(sum(sum(row) for row in s["heatmap"]), 3)
+        de = s["byCountry"]["DE"]
+        self.assertEqual((de["n"], de["ips"], de["types"]), (2, 1, {"Port-Scan": 2}))
+        self.assertEqual((s["hotspots"][0]["city"], s["hotspots"][0]["ips"]), ("Berlin", 1))
+
+
+    def test_old_geo_rows_are_refetched(self):
+        self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", time.time())])
+        self.assertIn("1.2.3.4", self.store.ips_without_geo())
+
+    def test_events_where_and_profile(self):
+        since = time.time() - 3600
+        self.assertEqual(self.store.events_where("cc", "DE", since)[0], 2)
+        self.assertEqual(self.store.events_where("user", "root", since)[0], 1)
+        self.assertEqual(self.store.events_where("port", "22", since)[0], 2)
+        first_id = self.store.feed()[0]["id"]
+        self.assertEqual(self.store.events_where("ip", first_id, since)[0], 2)
+        with self.assertRaises(KeyError):
+            self.store.events_where("1=1; --", "x", since)
+        ip, prof = self.store.ip_profile(first_id)
+        self.assertEqual((ip, prof["n"], prof["types"], prof["geo"]["hosting"]), ("1.2.3.4", 2, {"Port-Scan": 2}, 1))
+
+
+class IntelTests(unittest.TestCase):
+    def test_classify(self):
+        self.assertEqual(intel.classify("scanner-1.censys-scanner.com", None, None, 1, 0, 0)["name"], "Censys")
+        self.assertEqual(intel.classify(None, "Some Telecom", None, False, False, False)["category"], "residential")
+        self.assertEqual(intel.classify(None, "X", None, True, False, False)["category"], "cloud")
+        gcp = intel.classify("x.1.2.3.bc.googleusercontent.com", "Google LLC", "Google Cloud (europe-west1)", 1, 0, 0)
+        self.assertEqual((gcp["name"], gcp["category"]), ("Google Cloud", "cloud"))
+
+    def test_mask_host(self):
+        self.assertEqual(intel.mask_host("1-2-3-4.dsl.example.net", "1.2.3.4"), "1-2-3-x.dsl.example.net")
+        self.assertEqual(intel.mask_host("4.3.2.1.in-addr.example", "1.2.3.4"), "x.3.2.1.in-addr.example")
 
 
 class MaskTests(unittest.TestCase):

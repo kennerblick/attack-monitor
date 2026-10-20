@@ -2,6 +2,7 @@
 // Jede Änderung erzeugt den Code neu und wird live (am Zyklusende) übernommen.
 import { GENRES, LAYERS, KEYS } from "./genres.js";
 import { buildCode } from "./code.js";
+import { createLiveView } from "./live.js";
 
 const $ = id => document.getElementById(id);
 const SAMPLE_BANKS = [
@@ -17,12 +18,23 @@ const state = {
 
 let timer = null;
 let audioReady = null;
+let repl = null; // von initStrudel; repl.stop() hält den Scheduler wirklich an
+let suspendTimer = null;
+const live = createLiveView({
+  code: $("code"), bar: $("bar"), beats: $("beats"), cycle: $("cycle"),
+  ignore: text => text === state.genre.bank || text.includes(":"),
+});
+
 function apply() {
   const code = buildCode(state);
-  $("code").textContent = code;
-  if (!state.playing) return;
   clearTimeout(timer);
-  timer = setTimeout(() => window.evaluate(code).catch(err => showStatus(`Pattern-Fehler: ${err.message}`, "bad")), 120);
+  if (!state.playing) { live.show(code); return; }
+  timer = setTimeout(async () => {
+    const pattern = await repl.evaluate(code);
+    // Stopp während der Auswertung: evaluate hat den Scheduler gerade (wieder) gestartet
+    if (!state.playing) { repl.stop(); return; }
+    if (pattern) live.show(code, pattern, repl.scheduler);
+  }, 120);
 }
 
 function showStatus(text, cls = "") {
@@ -37,13 +49,20 @@ async function togglePlay() {
   $("play").setAttribute("aria-label", state.playing ? "Stopp" : "Play");
   if (state.playing) {
     // Worklets explizit laden, bevor die ersten Töne starten (sonst Race mit initAudioOnFirstClick)
+    clearTimeout(suspendTimer);
     audioReady ||= window.initAudio();
     await audioReady;
     await window.getAudioContext().resume();
     apply();
     showStatus(`▶ ${state.genre.name} · ${state.key} ${state.genre.scale} · ${state.bpm} BPM`, "ok");
   } else {
-    window.hush();
+    // Nicht window.hush(): das globale hush wird nach dem ersten evaluate durch eine Variante
+    // ersetzt, die nur die Pattern-Liste leert – der Scheduler spielt dann weiter.
+    clearTimeout(timer);
+    repl.stop();
+    // Hall und Echo würden sonst noch Sekunden nachklingen: kurz ausklingen lassen, dann anhalten
+    suspendTimer = setTimeout(() => window.getAudioContext().suspend(), 300);
+    apply();
     showStatus("Gestoppt");
   }
 }
@@ -133,6 +152,9 @@ bindMacros();
 apply();
 drawScope();
 showStatus("Lade Samples …");
-window.initStrudel({ prebake: () => Promise.all(SAMPLE_BANKS.map(b => window.samples(b))) })
-  .then(() => { state.ready = true; showStatus("Bereit: Play drücken oder Leertaste", "ok"); })
+window.initStrudel({
+  prebake: () => Promise.all(SAMPLE_BANKS.map(b => window.samples(b))),
+  onEvalError: err => showStatus(`Pattern-Fehler: ${err.message}`, "bad"),
+})
+  .then(r => { repl = r; state.ready = true; showStatus("Bereit: Play drücken oder Leertaste", "ok"); })
   .catch(err => showStatus(`Audio-Engine konnte nicht starten: ${err.message}`, "bad"));

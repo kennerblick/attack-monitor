@@ -41,14 +41,21 @@
 
   <section class="main">
     <div class="stack">
-      <div class="panel"><h2>Angriffsarten <em>Klick = Filter</em></h2><ul class="bars" id="types"></ul></div>
+      <div class="panel"><h2>Angriffsarten <em>Klick = Vorgänge</em></h2><ul class="bars" id="types"></ul></div>
       <div class="panel"><h2>Top-Länder</h2><ul class="bars" id="countries"></ul></div>
       <div class="panel"><h2>Top-Netze (ASN)</h2><ul class="bars" id="asns"></ul></div>
     </div>
 
     <div class="panel globe-panel">
       <div id="globe" aria-label="3D-Globus mit Angriffsherkunft"></div>
-      <div class="globe-title">ANGRIFFSHERKUNFT → 3LIS.DE<span id="server-loc"></span><span>Säulen: Herde im Zeitfenster · Bögen: jüngste Angriffe</span></div>
+      <div class="globe-title">ANGRIFFSHERKUNFT → 3LIS.DE<span id="server-loc"></span><span>Farbe: Angriffe je Land · Säulen: Herde · Bögen: jüngste Angriffe</span><span>Hover = Details · Klick = Land/Angriff · Ziehen/Scrollen = drehen/zoomen</span></div>
+      <div class="globe-tools" role="toolbar" aria-label="Globus-Ansicht">
+        <button data-globe="rotate" aria-pressed="true" title="Automatische Drehung">⟳ Drehen</button>
+        <button data-globe="shade" aria-pressed="true" title="Länder nach Angriffen färben">◐ Länder</button>
+        <button data-globe="points" aria-pressed="true" title="Säulen der Angriffsherde">▮ Säulen</button>
+        <button data-globe="arcs" aria-pressed="true" title="Bögen der Live-Angriffe">⌒ Bögen</button>
+        <button data-globe="reset" title="Ansicht zurücksetzen">◎ Zentrieren</button>
+      </div>
       <div class="globe-overlay">
         <div class="legend" id="legend"></div>
         <div class="toast" id="toast" style="opacity:0"></div>
@@ -58,7 +65,6 @@
     <div class="panel feed-col">
       <h2>Live-Feed <em id="feed-count"></em></h2>
       <ul class="feed" id="feed"><li class="empty">Warte auf Daten …</li></ul>
-      <div class="detail" id="detail"></div>
     </div>
   </section>
 
@@ -82,6 +88,10 @@
   <span><a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a></span>
 </footer>
 
+<aside class="drawer" id="drawer" aria-label="Details">
+  <header><button id="drawer-back" hidden aria-label="Zurück">←</button><h2 id="drawer-title"></h2><button id="drawer-close" aria-label="Schließen">✕</button></header>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
 <script src="/assets/vendor/globe.gl.min.js"></script>
 <script src="/assets/vendor/topojson-client.min.js"></script>
 <script type="module" src="/assets/js/main.js"></script>

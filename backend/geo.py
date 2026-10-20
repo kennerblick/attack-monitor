@@ -9,7 +9,7 @@ import json
 import time
 import urllib.request
 
-BATCH_URL = "http://ip-api.com/batch?fields=status,query,lat,lon,countryCode,country,city,isp,as"
+BATCH_URL = "http://ip-api.com/batch?fields=status,query,lat,lon,countryCode,country,city,isp,org,as,mobile,proxy,hosting"
 SELF_URL = "http://ip-api.com/json/?fields=status,lat,lon,city,country"
 INTERVAL = 4.5        # Sekunden zwischen Batches -> ~13/min, unter dem Limit
 IDLE_INTERVAL = 10
@@ -52,7 +52,9 @@ def lookup_batch(ips):
             asn = (d.get("as") or "").split(" ", 1)[0] if ok else None
             rows.append((d["query"], d.get("lat") if ok else None, d.get("lon") if ok else None,
                          d.get("countryCode") if ok else None, d.get("country") if ok else None,
-                         d.get("city") if ok else None, d.get("isp") if ok else None, asn, now))
+                         d.get("city") if ok else None, d.get("isp") if ok else None, asn, now,
+                         d.get("org") if ok else None, d.get("hosting") if ok else None,
+                         d.get("proxy") if ok else None, d.get("mobile") if ok else None))
     return rows
 
 

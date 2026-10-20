@@ -1,6 +1,7 @@
 // Steuerung: holt Feed (2 s), Statistik (15 s) und Status (30 s) und verteilt sie auf Globus und Panels.
 import { createGlobe } from "./globe.js";
-import { renderKpis, renderTypes, renderLists, renderFeed, renderDetail, toast } from "./panels.js";
+import { renderKpis, renderTypes, renderLists, renderFeed, toast } from "./panels.js";
+import { initDrawer, setRange, openList, openEvent, openCountry } from "./drawer.js";
 import { renderTimeline, renderHeatmap } from "./charts.js";
 
 const state = { range: "24h", active: null, events: [], lastId: 0, stats: null, status: null, lastOk: 0, lastFresh: 0 };
@@ -13,25 +14,33 @@ function visible() {
   return state.active ? state.events.filter(e => state.active.has(e.type)) : state.events;
 }
 
+function showEvent(ev) {
+  document.querySelectorAll("#feed li").forEach(x =>
+    (x.dataset.id === String(ev.id) ? x.setAttribute("aria-selected", "true") : x.removeAttribute("aria-selected")));
+  openEvent(ev);
+}
+
+function showCountry(cc) {
+  const info = state.stats?.byCountry?.[cc];
+  if (!info) return;
+  openCountry(cc, info, state.stats.hotspots.filter(h => h.cc === cc));
+  globe?.focusCountry(cc);
+}
+
 function redrawFeed(newIds = new Set()) {
-  renderFeed(visible(), newIds, (ev, li) => {
-    document.querySelectorAll("#feed li").forEach(x => x.removeAttribute("aria-selected"));
-    li.setAttribute("aria-selected", "true");
-    renderDetail(ev);
-    if (ev.lat != null) globe?.focus(ev.lat, ev.lon);
-  });
+  renderFeed(visible(), newIds, showEvent);
 }
 
 function redrawStats() {
   if (!state.stats) return;
   renderKpis(state.stats, null);
-  renderTypes(state.stats, state.active, toggleType);
-  renderLists(state.stats);
+  renderTypes(state.stats, state.active, toggleType, openList);
+  renderLists(state.stats, showCountry, openList);
   renderTimeline(document.getElementById("timeline"), state.stats.timeline, state.active);
   renderHeatmap(document.getElementById("heatmap"), state.stats.heatmap);
   document.getElementById("tl-sub").textContent =
     { "1h": "letzte Stunde · je Minute", "24h": "24 Stunden · je 30 Min.", "7d": "7 Tage · je 3 Std." }[state.stats.range];
-  globe?.setHotspots(state.stats.hotspots);
+  globe?.setStats(state.stats);
 }
 
 function toggleType(key) {
@@ -106,17 +115,24 @@ function tick() {
 document.querySelectorAll(".ranges button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".ranges button").forEach(x => x.setAttribute("aria-pressed", x === b));
   state.range = b.dataset.range;
+  setRange(state.range);
   pollStats();
 }));
 addEventListener("resize", () => redrawStats());
 
 (async function start() {
+  initDrawer({ focus: (lat, lon) => globe?.focus(lat, lon) });
   setInterval(tick, 1000);
   tick();
   const status = await pollStatus();
   const server = status?.server || { lat: 52.52, lon: 13.4, name: "Berlin" };
   try {
-    globe = await createGlobe(document.getElementById("globe"), server);
+    globe = await createGlobe(document.getElementById("globe"), server, { onCountry: showCountry, onEvent: showEvent });
+    document.querySelectorAll("[data-globe]").forEach(b => b.addEventListener("click", () => {
+      const key = b.dataset.globe;
+      if (key === "reset") globe.resetView();
+      else b.setAttribute("aria-pressed", key === "rotate" ? globe.toggleRotation() : globe.toggleLayer(key));
+    }));
   } catch (err) {
     document.getElementById("globe").innerHTML = '<p class="empty" style="padding:24px">3D-Globus konnte nicht geladen werden (WebGL?).</p>';
     console.error(err);

@@ -15,6 +15,7 @@
 </header>
 
 <main class="machine">
+<div class="controls">
   <section class="deck">
     <div class="transport">
       <button id="play" class="play" aria-label="Play"><span class="tri"></span><span class="sq"></span></button>
@@ -54,12 +55,19 @@
     </div>
   </section>
 
-  <details class="code">
-    <summary>Strudel-Code ansehen</summary>
-    <pre id="code"></pre>
-    <div class="actions"><button id="copy">Kopieren</button><button id="repl">Im Strudel-REPL öffnen ↗</button></div>
-  </details>
   <p class="hint">Tipp: Leertaste = Play/Stopp · Q W E R / A S D F = Spuren. Klang-Engine: <a href="https://strudel.cc" rel="noopener">Strudel</a> (AGPL-3.0), Samples: Tidal Dirt-Samples, tidal-drum-machines, Salamander Piano (von GitHub geladen).</p>
+</div>
+
+<aside class="live" aria-label="Live-Code">
+  <div class="live-head">
+    <h2>Live-Code <em>nur aktive Spuren</em></h2>
+    <div class="pos"><span id="bar">Takt –</span><span class="beats" id="beats"><i></i><i></i><i></i><i></i></span></div>
+    <div class="cycle"><i id="cycle"></i></div>
+  </div>
+  <pre id="code" class="livecode"></pre>
+  <div class="actions"><button id="copy">Kopieren</button><button id="repl">Im Strudel-REPL öffnen ↗</button></div>
+  <p class="hint">Hervorgehoben: Noten und Samples, die gerade klingen. Ein Takt = ein Strudel-Zyklus (4 Schläge).</p>
+</aside>
 </main>
 
 <footer class="footer">

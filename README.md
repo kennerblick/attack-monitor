@@ -1,10 +1,13 @@
 # 3lis.de – Website mit Live Threat Monitor
 
 Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server:
-ein 3D-Globus mit Angriffsherden und Live-Bögen, ein Live-Feed mit Detailansicht, Kennzahlen,
-Top-Listen (Länder, ASN, Ports, SSH-Benutzernamen, Pfade, Jails), eine Zeitleiste und eine
-Wochen-Heatmap. Dazu kommen die Musikseite **Strudel Groove Machine**, die Übersicht der
-Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
+ein interaktiver 3D-Globus (Länder nach Angriffen eingefärbt, Herde als Säulen, Live-Bögen, Tooltips,
+Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länder, ASN, Ports,
+SSH-Benutzernamen, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
+öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
+Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
+**Strudel Groove Machine** (mit Live-Code-Ansicht und Markierung der gerade klingenden Stellen), die
+Übersicht der Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
 
 ## Schnellstart
 
@@ -42,7 +45,9 @@ nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled
 ## Datenschutz und externe Dienste
 
 - Angreifer-IPs werden in der API auf /24 gekürzt (`1.2.3.x`), auch in Detailtexten.
-- Geolokalisierung über den Batch-Endpoint von `ip-api.com`: kostenlos, ohne Key, pro IP nur einmal.
+- Geolokalisierung über den Batch-Endpoint von `ip-api.com`: kostenlos, ohne Key, pro IP nur einmal
+  (inkl. `hosting`/`proxy`/`mobile`/`org`). rDNS fürs IP-Profil über den lokalen Resolver, 24 h gecacht;
+  Hostnamen, die die IP enthalten, werden ebenfalls gekürzt. Keine externen Threat-Intel-APIs.
 - Alle Bibliotheken (globe.gl, topojson, Länderdaten, @strudel/web) liegen versioniert in
   `frontend/assets/vendor/`. Es gibt keine CDNs und keine Google Fonts.
 - Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`.
@@ -53,9 +58,11 @@ Siehe [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md).
 
 ## Test im Browser
 
-Der Strudel-Klang lässt sich headless prüfen: Puppeteer mit
+Der Strudel-Klang lässt sich headless prüfen: Playwright/Puppeteer mit
 `--autoplay-policy=no-user-gesture-required` aufrufen und `getAnalyzerData('frequency', 1)` auslesen.
-Das Pattern wird mit `.analyze(1)` erzeugt.
+Das Pattern wird mit `.analyze(1)` erzeugt. Lokal: API mit Kopie der DB auf Port 8199 starten
+(siehe `CLAUDE.md`) und `frontend/` mit einem Proxy für `/api/` ausliefern. Der Globus braucht
+headless `--use-gl=swiftshader --enable-unsafe-swiftshader`.
 
 ## Lizenz
 

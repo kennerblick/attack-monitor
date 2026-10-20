@@ -9,7 +9,7 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 
 # Backend
 install -d -m 755 "$APP" /var/lib/attack-monitor
-install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail}.py "$APP"/
+install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail,intel}.py "$APP"/
 install -m 644 "$REPO/deploy/attack-monitor.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl restart attack-monitor

@@ -4,9 +4,24 @@ import { LAYERS } from "./genres.js";
 // Regler 0..100 -> Strudel-Werte
 const filterHz = v => Math.round(120 * (20000 / 120) ** (v / 100));
 
+// Methodenkette auf oberster Ebene umbrechen: s("bd*4").bank("x") -> s("bd*4")\n    .bank("x")
+function chain(code, indent) {
+  let out = "", depth = 0, quote = null;
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    if (quote) { if (c === quote) quote = null; }
+    else if (c === '"' || c === "'") quote = c;
+    else if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth--;
+    else if (c === "." && depth === 0 && code[i - 1] === ")") { out += `\n${indent}`; }
+    out += c;
+  }
+  return out;
+}
+
 export function buildCode(s) {
   const fill = code => code.replaceAll("{K}", s.key).replaceAll("{S}", s.genre.scale).replaceAll("{B}", s.genre.bank);
-  const layers = LAYERS.filter(l => s.on.has(l.key)).map(l => `  ${fill(s.genre.layers[l.key])}`);
+  const layers = LAYERS.filter(l => s.on.has(l.key)).map(l => `  ${chain(fill(s.genre.layers[l.key]), "    ")}`);
   if (!layers.length) return "silence";
   const m = s.macro;
   const fx = [
@@ -14,6 +29,7 @@ export function buildCode(s) {
     m.space ? `.room(${(m.space / 100 * 0.9).toFixed(2)}).roomsize(${(1 + m.space / 25).toFixed(1)})` : "",
     m.echo ? `.delay(${(m.echo / 100 * 0.7).toFixed(2)}).delaytime(${(60 / s.bpm * 0.75).toFixed(3)}).delayfeedback(.45)` : "",
     m.drive ? `.shape(${(m.drive / 100 * 0.7).toFixed(2)})` : "",
-  ].join("");
-  return `setcpm(${s.bpm}/4)\n\nstack(\n${layers.join(",\n")}\n)${fx}.postgain(${(m.volume / 100 * 1.1).toFixed(2)}).analyze(1)`;
+    `.postgain(${(m.volume / 100 * 1.1).toFixed(2)})`, ".analyze(1)",
+  ].filter(Boolean);
+  return `setcpm(${s.bpm}/4)\n\nstack(\n${layers.join(",\n")}\n)\n  ${fx.join("\n  ")}`;
 }

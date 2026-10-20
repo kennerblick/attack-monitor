@@ -47,12 +47,24 @@ def compute(store, range_key):
         "jailsTop": [{"jail": j, "n": n} for j, n in _top(
             store, "SELECT jail, COUNT(*) n FROM events WHERE ts>=? AND jail IS NOT NULL GROUP BY jail", since)],
         # Herkunftsorte auf ~1°-Raster gebündelt, für die Säulen auf dem Globus
-        "hotspots": [{"lat": la, "lon": lo, "cc": cc, "n": n} for la, lo, cc, n in store.query(
-            f"SELECT ROUND(g.lat), ROUND(g.lon), MAX(g.cc), COUNT(*) n {join} AND g.lat IS NOT NULL "
-            "GROUP BY 1, 2 ORDER BY n DESC LIMIT 400", (since,))],
+        "hotspots": [{"lat": la, "lon": lo, "cc": cc, "city": city, "n": n, "ips": ips, "last": last}
+                     for la, lo, cc, city, n, ips, last in store.query(
+            f"SELECT ROUND(g.lat), ROUND(g.lon), MAX(g.cc), MAX(g.city), COUNT(*) n, COUNT(DISTINCT e.ip), MAX(e.ts) "
+            f"{join} AND g.lat IS NOT NULL GROUP BY 1, 2 ORDER BY n DESC LIMIT 400", (since,))],
+        "byCountry": by_country(store, join, since),
         "timeline": {"bucket": bucket, "buckets": buckets},
         "heatmap": heatmap(store, now),
     }
+
+
+def by_country(store, join, since):
+    """Alle Länder des Fensters mit Anzahl, IPs, letzter Zeit und Verteilung der Angriffsarten (Globus-Tooltips)."""
+    out = {cc: {"country": c, "n": n, "ips": ips, "last": last, "types": {}} for cc, c, n, ips, last in store.query(
+        f"SELECT g.cc, MAX(g.country), COUNT(*), COUNT(DISTINCT e.ip), MAX(e.ts) {join} AND g.cc IS NOT NULL "
+        "GROUP BY g.cc", (since,))}
+    for cc, typ, n in store.query(f"SELECT g.cc, e.type, COUNT(*) {join} AND g.cc IS NOT NULL GROUP BY 1, 2", (since,)):
+        out[cc]["types"][typ] = n
+    return out
 
 
 def heatmap(store, now):

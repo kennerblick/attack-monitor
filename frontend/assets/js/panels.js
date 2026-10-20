@@ -1,9 +1,9 @@
-// Kennzahlen, Top-Listen, Live-Feed und Detailansicht.
-import { TYPES, typeInfo, num, flag, time, dateTime, esc, service, SEVERITY } from "./format.js";
+// Kennzahlen, Top-Listen, Live-Feed und Toast (Detailansichten: drawer.js).
+import { TYPES, typeInfo, num, flag, time, esc, service } from "./format.js";
 
 const $ = id => document.getElementById(id);
 
-function bars(el, rows, render) {
+function bars(el, rows, render, onPick) {
   if (!rows.length) { el.innerHTML = '<li class="empty">Keine Daten im Zeitfenster</li>'; return; }
   const max = Math.max(...rows.map(r => r.n));
   el.innerHTML = rows.map(r => {
@@ -12,6 +12,7 @@ function bars(el, rows, render) {
       `<span class="val">${num(r.n)}</span><span class="track"><i style="width:${(r.n / max) * 100}%;` +
       `${color ? `background:${color}` : ""}"></i></span></li>`;
   }).join("");
+  if (onPick) [...el.children].forEach((li, i) => { li.classList.add("pick"); li.onclick = () => onPick(rows[i]); });
 }
 
 export function renderKpis(stats, status) {
@@ -31,31 +32,35 @@ export function renderKpis(stats, status) {
   }
 }
 
-export function renderTypes(stats, active, onToggle) {
+export function renderTypes(stats, active, onToggle, onPick) {
   const counts = Object.fromEntries(stats.byType.map(t => [t.type, t.n]));
   const rows = TYPES.map(t => ({ ...t, n: counts[t.key] || 0 }));
   const el = $("types");
-  bars(el, rows, r => ({ icon: `<span class="dot" style="background:${r.color}"></span>`, name: r.label, color: r.color }));
-  [...el.children].forEach((li, i) => {
-    li.style.cursor = "pointer";
-    li.style.opacity = !active || active.has(rows[i].key) ? 1 : 0.35;
-    li.onclick = () => onToggle(rows[i].key);
-  });
+  bars(el, rows, r => ({ icon: `<span class="dot" style="background:${r.color}"></span>`, name: r.label, color: r.color }),
+    r => onPick("type", r.key, r.label));
+  [...el.children].forEach((li, i) => { li.style.opacity = !active || active.has(rows[i].key) ? 1 : 0.35; });
   $("legend").innerHTML = TYPES.map(t =>
     `<button class="chip" data-type="${t.key}" aria-pressed="${!active || active.has(t.key)}"><i style="background:${t.color}"></i>${t.label}</button>`).join("");
   $("legend").querySelectorAll(".chip").forEach(b => { b.onclick = () => onToggle(b.dataset.type); });
 }
 
-export function renderLists(stats) {
-  bars($("countries"), stats.countriesTop.slice(0, 8), r => ({ icon: `<span class="flag">${flag(r.cc)}</span>`, name: esc(r.country) }));
-  bars($("asns"), stats.asnTop.slice(0, 8), r => ({ icon: '<span class="flag">🛰️</span>', name: `${esc(r.isp)}<small>${esc(r.asn)}</small>` }));
-  bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${r.port}<small>${service(r.port)}</small>`, color: "#3987e5" }));
-  bars($("users"), stats.usersTop, r => ({ icon: '<span class="flag">👤</span>', name: esc(r.user), color: "#199e70" }));
-  bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }));
-  bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }));
+// onPick(kind, value, title): öffnet die Vorgänge zu einem Eintrag (kind = Filter in /api/events)
+export function renderLists(stats, onCountry, onPick) {
+  bars($("countries"), stats.countriesTop.slice(0, 8), r => ({ icon: `<span class="flag">${flag(r.cc)}</span>`, name: esc(r.country) }),
+    r => onCountry(r.cc));
+  bars($("asns"), stats.asnTop.slice(0, 8), r => ({ icon: '<span class="flag">🛰️</span>', name: `${esc(r.isp)}<small>${esc(r.asn)}</small>` }),
+    r => onPick("asn", r.asn, `${esc(r.isp)} · ${esc(r.asn)}`));
+  bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${r.port}<small>${service(r.port)}</small>`, color: "#3987e5" }),
+    r => onPick("port", r.port, `Port ${r.port} ${service(r.port)}`));
+  bars($("users"), stats.usersTop, r => ({ icon: '<span class="flag">👤</span>', name: esc(r.user), color: "#199e70" }),
+    r => onPick("user", r.user, `SSH-Benutzer „${esc(r.user)}“`));
+  bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
+    r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
+  bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }),
+    r => onPick("jail", r.jail, `Jail ${esc(r.jail)}`));
 }
 
-function feedItem(ev) {
+export function feedItem(ev) {
   const t = typeInfo(ev.type);
   const where = ev.cc ? `${flag(ev.cc)} ${esc(ev.country)}` : "⏳ lokalisiere …";
   return `<li data-id="${ev.id}" style="--c:${t.color}"><span class="t">${time(ev.ts)}</span>` +
@@ -73,19 +78,6 @@ export function renderFeed(events, newIds, onSelect) {
     li.onclick = () => onSelect(events.find(e => e.id === id), li);
   });
   $("feed-count").textContent = `${events.length} neueste`;
-}
-
-export function renderDetail(ev) {
-  const t = typeInfo(ev.type);
-  const rows = [
-    ["Zeit", dateTime(ev.ts)], ["Art", `${t.label} · ${SEVERITY[ev.sev] || ev.sev}`], ["Quelle", ev.src],
-    ["IP", ev.ip], ["Land", ev.cc ? `${flag(ev.cc)} ${ev.country}` : "–"], ["Stadt", ev.city || "–"],
-    ["Provider", ev.isp || "–"], ["ASN", ev.asn || "–"],
-    ["Port", ev.port ? `${ev.port} ${service(ev.port)}` : "–"], ["Jail", ev.jail || "–"], ["Detail", ev.detail],
-  ];
-  const el = $("detail");
-  el.innerHTML = `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
-  el.classList.add("open");
 }
 
 export function toast(ev) {
