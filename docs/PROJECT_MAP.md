@@ -1,7 +1,7 @@
 # Projektkarte
 
 ## Datenfluss
-Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:22/:21/:23 → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
+Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
@@ -17,10 +17,11 @@ Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:22/:21/:2
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
 | `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`/`command()`-Detailtexte (Benutzer, Passwort, Befehl) |
-| `honeypot_mysql.py` | MySQL :3306 (MariaDB-Begrüßung, Login mitlesen, „Access denied“) → `MySQL-Probe` |
+| `honeypot_mysql.py` | MySQL :3306 (MariaDB-Begrüßung, Login annehmen, SQL mitschneiden, feste Antworten) → `MySQL-Probe` |
+| `honeypot_postgres.py` | Postgres :5432 (Klartext-Passwort anfordern, Login annehmen, SQL mitschneiden) → `Postgres-Probe` |
 | `honeypot_ssh.py` | SSH :22 via paramiko (Schlüssel abgelehnt, Passwort angenommen → Fake-Shell/Exec, nur Session-Kanäle) → `SSH-Probe` |
 | `honeypot_telnet.py` | Telnet :23 (Router-Login, IAC filtern, jede Anmeldung → Fake-Shell) → `Telnet-Probe` |
-| `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event „Befehl „…““ (crit) |
+| `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event „Befehl „…““ (crit); `MAX_COMMANDS` gilt auch für SQL |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py` | Unit-Tests (`python3 -m unittest`) |

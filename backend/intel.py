@@ -118,8 +118,8 @@ def verdict(cls, profile):
         return "Gezielter Angriff: versucht Code-/SQL-Injection – eindeutig bösartig."
     if types.get("SSH-Brute", 0) >= 10:
         return "Passwort-Raten auf SSH in Serie – typisches Botnetz-Verhalten."
-    if types.get("MySQL-Probe"):
-        return "Sucht offene Datenbanken: Kontakt mit dem MySQL-Honeypot auf Port 3306."
+    if types.get("MySQL-Probe") or types.get("Postgres-Probe"):
+        return "Sucht offene Datenbanken: Kontakt mit dem MySQL-/Postgres-Honeypot auf Port 3306/5432."
     if types.get("Telnet-Probe"):
         return "Telnet-Login mit Befehlen – typisch für Mirai-artige IoT-Botnetze."
     if types.get("SSH-Probe") or types.get("FTP-Probe"):

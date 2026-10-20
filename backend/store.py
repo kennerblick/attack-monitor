@@ -28,14 +28,14 @@ FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:9])}, g.lat, g.lon, g.cc, g
 GEO_EXTRA = ("org", "hosting", "proxy", "mobile")  # später ergänzte Spalten -> Migration in __init__
 
 # Login-Versuche (sshd und Honeypots), Detail jeweils "Login-Versuch als „name“ …" (honeypot.attempt)
-LOGIN_TYPES = "('SSH-Brute','MySQL-Probe','SSH-Probe','FTP-Probe','Telnet-Probe')"
+LOGIN_TYPES = "('SSH-Brute','MySQL-Probe','SSH-Probe','FTP-Probe','Telnet-Probe','Postgres-Probe')"
 LOGINS = f"type IN {LOGIN_TYPES} AND detail LIKE 'Login-Versuch als „%'"
 LOGIN_USER = "substr(detail, instr(detail, '„') + 1, instr(detail, '“') - instr(detail, '„') - 1)"
-# SSH-/FTP-Honeypot hängen " · Passwort „pw“" als letzten Teil an; 12 = len('· Passwort „')
-PASSWORDS = "type IN ('SSH-Probe','FTP-Probe','Telnet-Probe') AND detail LIKE '%· Passwort „%'"
+# SSH-/FTP-/Telnet-/Postgres-Honeypot hängen " · Passwort „pw“" als letzten Teil an; 12 = len('· Passwort „')
+PASSWORDS = "type IN ('SSH-Probe','FTP-Probe','Telnet-Probe','Postgres-Probe') AND detail LIKE '%· Passwort „%'"
 LOGIN_PW = "substr(detail, instr(detail, '· Passwort „') + 12, length(detail) - instr(detail, '· Passwort „') - 12)"
-# Fake-Shell von SSH-/Telnet-Honeypot: Detail "Befehl „…“" (Honeypot.command); 8 = len('Befehl „')
-COMMANDS = "type IN ('SSH-Probe','Telnet-Probe') AND detail LIKE 'Befehl „%'"
+# Fake-Shell von SSH-/Telnet-Honeypot und SQL der Datenbank-Honeypots: Detail "Befehl „…“" (Honeypot.command); 8 = len('Befehl „')
+COMMANDS = "type IN ('SSH-Probe','Telnet-Probe','MySQL-Probe','Postgres-Probe') AND detail LIKE 'Befehl „%'"
 COMMAND = "substr(detail, 9, length(detail) - 9)"
 
 # Drilldown aus den Top-Listen: Art -> WHERE-Bedingung (Werte immer als Parameter)

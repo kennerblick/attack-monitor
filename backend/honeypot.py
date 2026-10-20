@@ -1,5 +1,5 @@
-"""Gemeinsame Basis der Honeypots (MySQL, SSH, FTP, Telnet): Port belegen, Verbindungen begrenzen,
-Login-Versuche und Befehle als Event speichern. Ausgeführt wird nie etwas (Telnet/SSH: fakeshell.py).
+"""Gemeinsame Basis der Honeypots (MySQL, Postgres, SSH, FTP, Telnet): Port belegen, Verbindungen begrenzen,
+Login-Versuche und Befehle als Event speichern. Ausgeführt wird nie etwas (Telnet/SSH: fakeshell.py, MySQL/Postgres: feste Antworten).
 
 Nur IPv4, weil die API-Kürzung (/24) nur IPv4 kennt.
 """

@@ -44,7 +44,7 @@ export function renderTypes(stats, active, onToggle, onPick) {
   $("legend").querySelectorAll(".chip").forEach(b => { b.onclick = () => onToggle(b.dataset.type); });
 }
 
-const LOGIN_SOURCE = { "SSH-Brute": "SSH", "SSH-Probe": "SSH :22", "FTP-Probe": "FTP", "Telnet-Probe": "Telnet", "MySQL-Probe": "MySQL" };
+const LOGIN_SOURCE = { "SSH-Brute": "SSH", "SSH-Probe": "SSH :22", "FTP-Probe": "FTP", "Telnet-Probe": "Telnet", "MySQL-Probe": "MySQL", "Postgres-Probe": "Postgres" };
 
 // onPick(kind, value, title): öffnet die Vorgänge zu einem Eintrag (kind = Filter in /api/events)
 export function renderLists(stats, onCountry, onPick) {
@@ -57,18 +57,18 @@ export function renderLists(stats, onCountry, onPick) {
   bars($("users"), stats.usersTop, r => ({
     icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${LOGIN_SOURCE[r.type]}</small>`,
     color: typeInfo(r.type).color,
-  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH, FTP, Telnet und MySQL)`));
+  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH, FTP, Telnet, MySQL und Postgres)`));
   const rest = stats.usersAll && stats.usersAll.names - stats.usersTop.length;
   if (rest > 0) {
     const shown = stats.usersTop.reduce((sum, r) => sum + r.n, 0);
     $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} weitere Namen · ` +
       `${num(stats.usersAll.n - shown)} Versuche <span class="val">alle ${num(stats.usersAll.n)} →</span></li>`);
-    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH, FTP, Telnet und MySQL)");
+    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH, FTP, Telnet, MySQL und Postgres)");
   }
   bars($("passwords"), stats.passwordsTop, r => ({ icon: '<span class="flag">🔑</span>', name: esc(r.password), color: "#e66767" }),
     r => onPick("password", r.password, `Passwort „${esc(r.password)}“ (Honeypots)`));
   bars($("commands"), stats.commandsTop, r => ({ icon: '<span class="flag">⌨️</span>', name: esc(r.command), color: "#8aa0b8" }),
-    r => onPick("command", r.command, `Befehl „${esc(r.command)}“ (SSH-/Telnet-Honeypot)`));
+    r => onPick("command", r.command, `Befehl „${esc(r.command)}“ (SSH-/Telnet-/Datenbank-Honeypot)`));
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
     r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
   bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }),

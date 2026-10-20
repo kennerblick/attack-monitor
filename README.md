@@ -28,19 +28,25 @@ weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Web
 | sshd | `/var/log/auth.log` | SSH-Brute (Benutzername) |
 | nginx | `access.log` / `error.log` | Web-Probe, SQLi/RCE, Rate-Limit, TLS-Scan |
 | fail2ban | `/var/log/fail2ban.log` | fail2ban-Ban (nur `Ban`, nicht `Unban` und nicht `Restore Ban`) |
-| MySQL-Honeypot | Port 3306 (`backend/honeypot_mysql.py`) | MySQL-Probe (Benutzer, Datenbank) |
+| MySQL-Honeypot | Port 3306 (`backend/honeypot_mysql.py`) | MySQL-Probe (Benutzer, Datenbank, SQL-Abfragen) |
+| Postgres-Honeypot | Port 5432 (`backend/honeypot_postgres.py`) | Postgres-Probe (Benutzer, Passwort, SQL-Abfragen) |
 | SSH-Honeypot | Port 22 (`backend/honeypot_ssh.py`) | SSH-Probe (Benutzer, Passwort bzw. Schlüssel-Fingerprint, Befehle) |
 | FTP-Honeypot | Port 21 (`backend/honeypot_ftp.py`) | FTP-Probe (Benutzer, Passwort) |
 | Telnet-Honeypot | Port 23 (`backend/honeypot_telnet.py`) | Telnet-Probe (Benutzer, Passwort, Befehle) |
 
-Ausgeführt wird nie etwas; Verbindungen ohne Login zählen als „Server-Erkennung“. MySQL und FTP lehnen
-jede Anmeldung ab. SSH (nur Passwort, Schlüssel werden abgelehnt) und Telnet nehmen jede Anmeldung an und
+Ausgeführt wird nie etwas; Verbindungen ohne Login zählen als „Server-Erkennung“. FTP lehnt jede Anmeldung
+ab. SSH (nur Passwort, Schlüssel werden abgelehnt) und Telnet nehmen jede Anmeldung an und
 führen in eine Fake-Shell (`backend/fakeshell.py`): BusyBox-Router mit festen Antworten (`uname`,
 `/proc/cpuinfo`, `busybox X` → „applet not found“, Downloads schlagen fehl). Jede Befehlszeile wird ein
 Event (Schwere kritisch, gekürzt auf 100 Zeichen), höchstens 25 je Sitzung, 20 s Timeout je Eingabe.
 SSH erlaubt nur Session-Kanäle, kein Port-Forwarding (sonst offener Proxy).
-- MySQL spielt die MariaDB-Begrüßung. Passwörter sieht er nicht, weil Clients nur einen Hash schicken.
+- MySQL spielt MariaDB 10.11, nimmt jeden Login an und schneidet SQL-Abfragen mit (Event wie ein
+  Shell-Befehl, höchstens 25 je Sitzung). Feste Antworten für `version()`, `show databases`, `user()` usw.,
+  alles andere bekommt „OK“. Passwörter sieht er nicht, weil Clients nur einen Hash schicken.
   Die echte MariaDB ist deshalb abgeschaltet.
+- Postgres spielt PostgreSQL 16, lehnt TLS ab und verlangt das Passwort im Klartext
+  (`AuthenticationCleartextPassword`, libpq schickt es ohne Rückfrage). Danach wie MySQL: Login angenommen,
+  Abfragen mitgeschnitten (auch Extended Query), z. B. `COPY … FROM PROGRAM` von Krypto-Minern.
 - SSH nutzt paramiko (`python3-paramiko`), meldet sich als OpenSSH 9.2 und hält einen festen RSA-Host-Key
   in `/var/lib/attack-monitor/ssh_host_rsa_key`. Das echte sshd läuft auf 22022.
 - FTP spielt vsftpd und liest `USER`/`PASS` im Klartext, höchstens 20 Befehle je Verbindung.
