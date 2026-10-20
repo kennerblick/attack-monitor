@@ -52,14 +52,16 @@ export function renderLists(stats, onCountry, onPick) {
     r => onPick("asn", r.asn, `${esc(r.isp)} · ${esc(r.asn)}`));
   bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${r.port}<small>${service(r.port)}</small>`, color: "#3987e5" }),
     r => onPick("port", r.port, `Port ${r.port} ${service(r.port)}`));
-  bars($("users"), stats.usersTop, r => ({ icon: '<span class="flag">👤</span>', name: esc(r.user), color: "#199e70" }),
-    r => onPick("user", r.user, `SSH-Benutzer „${esc(r.user)}“`));
+  bars($("users"), stats.usersTop, r => ({
+    icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${r.type === "MySQL-Probe" ? "MySQL" : "SSH"}</small>`,
+    color: typeInfo(r.type).color,
+  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH und MySQL)`));
   const rest = stats.usersAll && stats.usersAll.names - stats.usersTop.length;
   if (rest > 0) {
     const shown = stats.usersTop.reduce((sum, r) => sum + r.n, 0);
     $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} weitere Namen · ` +
       `${num(stats.usersAll.n - shown)} Versuche <span class="val">alle ${num(stats.usersAll.n)} →</span></li>`);
-    $("users").lastElementChild.onclick = () => onPick("type", "SSH-Brute", "Alle SSH-Login-Versuche");
+    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH und MySQL)");
   }
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
     r => onPick("path", r.path, `Pfad ${esc(r.path)}`));

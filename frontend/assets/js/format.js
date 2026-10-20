@@ -8,6 +8,7 @@ export const TYPES = [
   { key: "SQLi/RCE", label: "SQLi / RCE", color: "#d55181" },
   { key: "Rate-Limit", label: "Rate-Limit", color: "#008300" },
   { key: "SSL-Scan", label: "TLS-Scan", color: "#9085e9" },
+  { key: "MySQL-Probe", label: "MySQL-Honeypot", color: "#a3a948" },
 ];
 const BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
 export const typeInfo = key => BY_KEY[key] || { key, label: key, color: "#6b7894" };

@@ -1,6 +1,8 @@
 """Aggregierte Kennzahlen für ein Zeitfenster (1h / 24h / 7d)."""
 import time
 
+from store import LOGIN_USER, LOGINS
+
 # Fenster -> (Sekunden, Bucket-Größe der Zeitleiste)
 RANGES = {"1h": (3600, 60), "24h": (86400, 1800), "7d": (7 * 86400, 3 * 3600)}
 
@@ -39,11 +41,12 @@ def compute(store, range_key):
             store, f"SELECT g.asn, MAX(g.isp), COUNT(*) n {join} AND g.asn IS NOT NULL AND g.asn!='' GROUP BY g.asn", since)],
         "portsTop": [{"port": p, "n": n} for p, n in _top(
             store, "SELECT port, COUNT(*) n FROM events WHERE ts>=? AND type='Port-Scan' GROUP BY port", since)],
-        "usersTop": [{"user": d.split("„", 1)[-1].rstrip("“"), "n": n} for d, n in _top(
-            store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type='SSH-Brute' GROUP BY detail", since, 8)],
+        "usersTop": [{"type": t, "user": u, "n": n} for t, u, n in _top(
+            store, f"SELECT type, {LOGIN_USER} u, COUNT(*) n FROM events WHERE ts>=? AND {LOGINS} GROUP BY type, u",
+            since, 8)],
         # Top 8 zeigt nur einen Bruchteil, weil die meisten Namen nur einmal probiert werden
         "usersAll": dict(zip(("names", "n"), store.query(
-            "SELECT COUNT(DISTINCT detail), COUNT(*) FROM events WHERE ts>=? AND type='SSH-Brute'", (since,))[0])),
+            f"SELECT COUNT(DISTINCT type || {LOGIN_USER}), COUNT(*) FROM events WHERE ts>=? AND {LOGINS}", (since,))[0])),
         "pathsTop": [{"path": d.split(" → ")[0], "n": n} for d, n in _top(
             store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type IN ('Web-Probe','SQLi/RCE') "
                    "GROUP BY substr(detail, 1, instr(detail, ' → '))", since, 8)],

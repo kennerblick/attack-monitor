@@ -1,9 +1,13 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
 import os
+import socket
+import struct
 import tempfile
+import threading
 import time
 import unittest
 
+import honeypot
 import intel
 import parsers
 import stats
@@ -77,7 +81,7 @@ class StoreStatsTests(unittest.TestCase):
         s = stats.compute(self.store, "1h")
         self.assertEqual((s["total"], s["uniqueIps"], s["countries"]), (3, 2, 1))
         self.assertEqual(s["portsTop"], [{"port": 22, "n": 2}])
-        self.assertEqual(s["usersTop"], [{"user": "root", "n": 1}])
+        self.assertEqual(s["usersTop"], [{"type": "SSH-Brute", "user": "root", "n": 1}])
         self.assertEqual(sum(sum(row) for row in s["heatmap"]), 3)
         de = s["byCountry"]["DE"]
         self.assertEqual((de["n"], de["ips"], de["types"]), (2, 1, {"Port-Scan": 2}))
@@ -156,6 +160,43 @@ class VisitsTests(unittest.TestCase):
                                       {"day": "2026-10-20", "visitors": 2, "views": 3}])
         self.assertEqual(s["monthly"], [{"period": "2026-10", "visitors": 3, "views": 4}])
         self.assertEqual(s["pages"][0], ("/", 3))
+
+
+class HoneypotTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.pot = honeypot.Honeypot(self.store, port=0, host="127.0.0.1")
+        ready = threading.Event()
+        threading.Thread(target=self.pot.serve, args=(ready,), daemon=True).start()
+        ready.wait(5)
+
+    def connect(self):
+        sock = socket.create_connection(("127.0.0.1", self.pot.port), timeout=5)
+        _, greeting = honeypot._read_packet(sock)
+        self.assertIn(b"MariaDB", greeting)
+        return sock
+
+    def wait_events(self, n):
+        for _ in range(50):
+            rows = self.store.query("SELECT type, sev, detail FROM events")
+            if len(rows) >= n:
+                return rows
+            time.sleep(0.05)
+        return rows
+
+    def test_login_is_recorded_and_denied(self):
+        login = (struct.pack("<I", 0x0008A20F) + struct.pack("<I", 1 << 24) + b"\x21" + b"\0" * 23
+                 + b"root\0" + bytes([20]) + b"x" * 20 + b"wordpress\0" + b"mysql_native_password\0")
+        with self.connect() as sock:
+            sock.sendall(honeypot.packet(1, login))
+            seq, reply = honeypot._read_packet(sock)
+        self.assertEqual((seq, reply[:1], reply[3:9]), (2, b"\xff", b"#28000"))
+        self.assertEqual(self.wait_events(1), [("MySQL-Probe", "high", "Login-Versuch als „root“ · DB „wordpress“")])
+        self.assertEqual(stats.compute(self.store, "24h")["usersTop"][0]["user"], "root")
+
+    def test_scan_without_login(self):
+        self.connect().close()
+        self.assertEqual(self.wait_events(1)[0][1:], ("low", "Verbindung ohne Login (Server-Erkennung)"))
 
 
 class MaskTests(unittest.TestCase):

@@ -28,6 +28,13 @@ weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Web
 | sshd | `/var/log/auth.log` | SSH-Brute (Benutzername) |
 | nginx | `access.log` / `error.log` | Web-Probe, SQLi/RCE, Rate-Limit, TLS-Scan |
 | fail2ban | `/var/log/fail2ban.log` | fail2ban-Ban (nur `Ban`, nicht `Unban` und nicht `Restore Ban`) |
+| MySQL-Honeypot | Port 3306 (`backend/honeypot.py`) | MySQL-Probe (Benutzer, Datenbank; Login wird immer abgelehnt) |
+
+Der Honeypot spielt die Begrüßung eines MariaDB-Servers und schneidet das Login-Paket mit. Es gibt
+keine Datenbank und keine Befehle. Passwörter sieht er nicht, weil Clients nur einen Hash schicken.
+Er lauscht nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nimmt höchstens 50 gleichzeitige
+Verbindungen an und speichert höchstens 30 Events pro IP und Minute. Ist der Port belegt, versucht
+er es jede Minute erneut. Die echte MariaDB ist deshalb abgeschaltet.
 
 Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.

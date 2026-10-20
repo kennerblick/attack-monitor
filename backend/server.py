@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import geo
+import honeypot
 import intel
 import stats
 import tail
@@ -141,5 +142,6 @@ if __name__ == "__main__":
     threading.Thread(target=geo.worker, args=(store,), daemon=True).start()
     counter = visits.Visits(store)
     threading.Thread(target=tail.run, args=(store, counter), daemon=True).start()
+    threading.Thread(target=honeypot.Honeypot(store).serve, daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
     ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter)).serve_forever()

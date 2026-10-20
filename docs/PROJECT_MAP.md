@@ -1,7 +1,7 @@
 # Projektkarte
 
 ## Datenfluss
-Logs (syslog, auth, nginx access/error, fail2ban) → `tail.py` (Offsets in DB) → `parsers.py` → SQLite
+Logs (syslog, auth, nginx access/error, fail2ban) und Honeypot :3306 → `tail.py`/`honeypot.py` (Offsets in DB) → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
@@ -16,6 +16,7 @@ Logs (syslog, auth, nginx access/error, fail2ban) → `tail.py` (Offsets in DB) 
 | `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
+| `honeypot.py` | MySQL-Honeypot :3306 (Begrüßung, Login mitlesen, immer „Access denied“) → Event `MySQL-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py` | Unit-Tests (`python3 -m unittest`) |
 

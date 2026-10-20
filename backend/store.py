@@ -27,11 +27,16 @@ FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:9])}, g.lat, g.lon, g.cc, g
                "FROM events e LEFT JOIN geo g ON g.ip=e.ip ")
 GEO_EXTRA = ("org", "hosting", "proxy", "mobile")  # später ergänzte Spalten -> Migration in __init__
 
+# Login-Versuche (SSH und MySQL-Honeypot), Detail jeweils "Login-Versuch als „name“ …"
+LOGINS = "type IN ('SSH-Brute','MySQL-Probe') AND detail LIKE 'Login-Versuch als „%'"
+LOGIN_USER = "substr(detail, instr(detail, '„') + 1, instr(detail, '“') - instr(detail, '„') - 1)"
+
 # Drilldown aus den Top-Listen: Art -> WHERE-Bedingung (Werte immer als Parameter)
 FILTERS = {
     "type": "e.type=?", "cc": "g.cc=?", "asn": "g.asn=?", "jail": "e.jail=?",
     "port": "e.type='Port-Scan' AND e.port=?",
-    "user": "e.type='SSH-Brute' AND e.detail LIKE '%„' || ? || '“%'",
+    "user": "e.type IN ('SSH-Brute','MySQL-Probe') AND e.detail LIKE 'Login-Versuch als „' || ? || '“%'",
+    "login": "e.type IN ('SSH-Brute','MySQL-Probe') AND e.detail LIKE ? || '%'",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
 }
 
@@ -118,8 +123,7 @@ class Store:
             "n": n, "first": first, "last": last, "days": days,
             "types": dict(top("SELECT type, COUNT(*) n FROM events WHERE ip=? GROUP BY type")),
             "ports": top("SELECT port, COUNT(*) n FROM events WHERE ip=? AND type='Port-Scan' GROUP BY port"),
-            "users": [(d.split("„", 1)[-1].rstrip("“"), c) for d, c in top(
-                "SELECT detail, COUNT(*) n FROM events WHERE ip=? AND type='SSH-Brute' GROUP BY detail")],
+            "users": top(f"SELECT {LOGIN_USER} u, COUNT(*) n FROM events WHERE ip=? AND {LOGINS} GROUP BY u"),
             "paths": [(d.split(" → ")[0], c) for d, c in top(
                 "SELECT detail, COUNT(*) n FROM events WHERE ip=? AND type IN ('Web-Probe','SQLi/RCE') "
                 "GROUP BY substr(detail, 1, instr(detail, ' → '))")],
