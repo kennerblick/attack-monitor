@@ -37,6 +37,7 @@ export function buildCode(s, { live = false } = {}) {
   const fill = code => code.replaceAll("{K}", s.key).replaceAll("{S}", v.scale).replaceAll("{B}", v.bank);
   const layers = s.genre.tracks.filter(t => s.on.has(t.key))
     .map(t => `  ${chain(fill(trackCode(s.genre, v, t.key)), "    ")}`);
+  if (s.own?.on && s.own.code.trim()) layers.push(`  ${chain(s.own.code.trim(), "    ")}`);
   if (!layers.length) return "silence";
   const fx = live
     ? [".ply(ref(() => grooveFx.ply()))", ".withValue(v => grooveFx.apply(v))"]

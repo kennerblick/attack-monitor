@@ -75,6 +75,22 @@
 .pad[aria-pressed="true"] { background: var(--genre); color: #060a14; border-color: transparent; box-shadow: 0 0 24px color-mix(in srgb, var(--genre) 55%, transparent); }
 .pad[aria-pressed="true"] kbd { color: #060a14; border-color: #060a1455; }
 
+.own { display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.own-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.own-row input { flex: 1; min-width: 200px; }
+.own input:not([type]), .own textarea {
+  background: #0a1020; color: var(--ink); border: 1px solid var(--line-strong); border-radius: 9px; padding: 8px 10px; font: 13px var(--mono);
+}
+.own-btn { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 9px; padding: 8px 12px; cursor: pointer; font-size: 13px; }
+.own-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.own-list li { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 2px 4px 2px 8px; font: 12px var(--mono); }
+.own-list li.bank { color: var(--ink-2); }
+.own-list li.empty { border: 0; color: var(--ink-3); padding: 0; }
+.own-list button { background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; padding: 2px; }
+.own-list .own-del { color: var(--ink-3); }
+.own-track { display: grid; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.own-track input { accent-color: var(--genre); }
+
 .grid2 { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; }
 .macros { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .macro, .tempo { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }

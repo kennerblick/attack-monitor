@@ -43,7 +43,7 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
 | `assets/js/charts.js` | SVG-Zeitleiste (gestapelt) und Heatmap mit Tooltips |
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |
 | `assets/vendor/` | globe.gl 2.46.2, topojson-client 3.1.0, world-atlas 2.0.2, @strudel/web 1.3.0 (+ clockworker) |
-| `strudel/` | Groove Machine: `genres/` (je Genre 12 Spuren + Varianten/Subgenres, `index.js`), `code.js` (Code-Generator: Anzeige mit festen Werten, gespielt mit `grooveFx`), `fx.js` (Echtzeit-FX über `withValue`/`ref`: DJ-Filter, Regler, Halte-Effekte), `live.js` (Live-Code-Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`) |
+| `strudel/` | Groove Machine: `genres/` (je Genre 12 Spuren + Varianten/Subgenres, `index.js`), `code.js` (Code-Generator: Anzeige mit festen Werten, gespielt mit `grooveFx`), `fx.js` (Echtzeit-FX über `withValue`/`ref`: DJ-Filter, Regler, Halte-Effekte), `live.js` (Live-Code-Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`), `samples.js` (eigene Samples: Dateien in IndexedDB, Bank-URLs in localStorage, Spur „Eigene Samples“) |
 | `besucher/` | interne Besucherstatistik (hinter Authelia): KPIs, Tages-Chart, Monat/Jahr, Seiten, Herkunft |
 | `lernen/index.php` | Übersicht der Lernseiten (liest `../*/index.html`) |
 | `attack-monitor/` | Weiterleitung alter Links auf `/` |

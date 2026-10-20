@@ -6,7 +6,7 @@ Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länd
 Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
-**Strudel Groove Machine** (6 Genres mit je 6–8 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen), die
+**Strudel Groove Machine** (6 Genres inkl. Paul-Kalkbrenner-Stil mit je 6–8 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen, eigene Samples aus dem Browser oder per Sample-Bank-URL), die
 Übersicht der Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
 
 ## Schnellstart
@@ -92,7 +92,9 @@ nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled
   Hostnamen, die die IP enthalten, werden ebenfalls gekürzt. Keine externen Threat-Intel-APIs.
 - Alle Bibliotheken (globe.gl, topojson, Länderdaten, @strudel/web) liegen versioniert in
   `frontend/assets/vendor/`. Es gibt keine CDNs und keine Google Fonts.
-- Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`.
+- Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`. Eigene Samples
+  bleiben im Browser (IndexedDB); selbst eingetragene Sample-Bänke lädt der Browser direkt von dort.
+- Konzept zum Umwandeln echter Songs in Patterns: [docs/song-konvertierung.md](docs/song-konvertierung.md).
 
 ## Struktur
 

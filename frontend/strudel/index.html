@@ -63,7 +63,21 @@
     </div>
   </section>
 
-  <p class="hint">Tipp: Leertaste = Play/Stopp · Q W E R T Z / A S D F G H = Spuren · 1–6 halten = Live-FX. Klang-Engine: <a href="https://strudel.cc" rel="noopener">Strudel</a> (AGPL-3.0), Samples: Tidal Dirt-Samples, tidal-drum-machines, Salamander Piano (von GitHub geladen).</p>
+  <section>
+    <h2>5 · Eigene Samples <em>bleiben in deinem Browser · Name anklicken = ins Pattern</em></h2>
+    <div class="own">
+      <div class="own-row">
+        <label class="own-btn">Audiodateien wählen<input type="file" id="own-files" accept="audio/*" multiple hidden></label>
+        <input id="own-url" placeholder="github:nutzer/repo oder https://…/strudel.json" aria-label="Sample-Bank">
+        <button class="own-btn" id="own-add">Bank laden</button>
+      </div>
+      <ul class="own-list" id="own-list"></ul>
+      <label class="own-track"><span><input type="checkbox" id="own-on"> Spur „Eigene Samples“ mitspielen</span>
+        <textarea id="own-code" rows="2" spellcheck="false" placeholder='s("meinsample ~ meinsample ~")'></textarea></label>
+    </div>
+  </section>
+
+  <p class="hint">Tipp: Leertaste = Play/Stopp · Q W E R T Z / A S D F G H = Spuren · 1–6 halten = Live-FX. Klang-Engine: <a href="https://strudel.cc" rel="noopener">Strudel</a> (AGPL-3.0), Samples: Tidal Dirt-Samples, tidal-drum-machines, Salamander Piano (von GitHub geladen), dazu eigene Samples aus deinem Browser.</p>
 </div>
 
 <aside class="live" aria-label="Live-Code">

@@ -4,11 +4,11 @@
 import techno from "./techno.js";
 import house from "./house.js";
 import dnb from "./dnb.js";
-import lofi from "./lofi.js";
+import kalkbrenner from "./kalkbrenner.js";
 import synthwave from "./synthwave.js";
 import ambient from "./ambient.js";
 
-export const GENRES = [techno, house, dnb, lofi, synthwave, ambient];
+export const GENRES = [techno, kalkbrenner, house, dnb, synthwave, ambient];
 export const KEYS = ["C", "D", "E", "F", "G", "A", "B"];
 // Tasten für die Spuren 1–12 (zwei Reihen wie auf einem Pad-Controller)
 export const PAD_KEYS = ["q", "w", "e", "r", "t", "z", "a", "s", "d", "f", "g", "h"];

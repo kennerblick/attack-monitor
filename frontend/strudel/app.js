@@ -4,6 +4,7 @@ import { GENRES, KEYS, PAD_KEYS } from "./genres/index.js";
 import { buildCode } from "./code.js";
 import { createLiveView } from "./live.js";
 import { createFx, HOLDS } from "./fx.js";
+import { createOwnSamples } from "./samples.js";
 
 const $ = id => document.getElementById(id);
 const SAMPLE_BANKS = [
@@ -15,6 +16,7 @@ const SAMPLE_BANKS = [
 const state = {
   genre: GENRES[0], variant: GENRES[0].variants[0], key: "A", on: new Set(), bpm: 120, playing: false, ready: false,
   macro: { filter: 0, space: 25, echo: 20, drive: 0, volume: 80 },
+  own: { on: false, code: "" }, // Spur „Eigene Samples“ (samples.js)
 };
 const fx = createFx(state);
 
@@ -187,13 +189,17 @@ $("repl").onclick = () => {
   window.open(`https://strudel.cc/#${btoa(unescape(encodeURIComponent(code)))}`, "_blank", "noopener");
 };
 
+const loadOwnSamples = createOwnSamples({
+  own: state.own, onChange: () => apply(), status: (text, cls) => showStatus(text, cls),
+  el: { files: $("own-files"), url: $("own-url"), add: $("own-add"), list: $("own-list"), code: $("own-code"), on: $("own-on") },
+});
 selectVariant(GENRES[0], GENRES[0].variants[0]);
 bindMacros();
 bindHolds();
 drawScope();
 showStatus("Lade Samples …");
 window.initStrudel({
-  prebake: () => Promise.all(SAMPLE_BANKS.map(b => window.samples(b))),
+  prebake: () => Promise.all([...SAMPLE_BANKS.map(b => window.samples(b)), loadOwnSamples()]),
   onEvalError: err => showStatus(`Pattern-Fehler: ${err.message}`, "bad"),
 })
   .then(r => { repl = r; state.ready = true; showStatus("Bereit: Play drücken oder Leertaste", "ok"); })
