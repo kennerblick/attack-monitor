@@ -54,6 +54,13 @@ export function renderLists(stats, onCountry, onPick) {
     r => onPick("port", r.port, `Port ${r.port} ${service(r.port)}`));
   bars($("users"), stats.usersTop, r => ({ icon: '<span class="flag">👤</span>', name: esc(r.user), color: "#199e70" }),
     r => onPick("user", r.user, `SSH-Benutzer „${esc(r.user)}“`));
+  const rest = stats.usersAll && stats.usersAll.names - stats.usersTop.length;
+  if (rest > 0) {
+    const shown = stats.usersTop.reduce((sum, r) => sum + r.n, 0);
+    $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} weitere Namen · ` +
+      `${num(stats.usersAll.n - shown)} Versuche <span class="val">alle ${num(stats.usersAll.n)} →</span></li>`);
+    $("users").lastElementChild.onclick = () => onPick("type", "SSH-Brute", "Alle SSH-Login-Versuche");
+  }
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
     r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
   bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }),

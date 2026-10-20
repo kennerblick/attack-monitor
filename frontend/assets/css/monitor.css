@@ -102,6 +102,7 @@
 
 .bars li.pick { cursor: pointer; border-radius: 6px; }
 .bars li.pick:hover { background: #ffffff0d; }
+.bars li.more { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 12px; padding: 2px 0; }
 
 /* Schublade rechts: Vorgänge, Event + IP-Profil, Land */
 .drawer {

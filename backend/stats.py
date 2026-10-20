@@ -41,6 +41,9 @@ def compute(store, range_key):
             store, "SELECT port, COUNT(*) n FROM events WHERE ts>=? AND type='Port-Scan' GROUP BY port", since)],
         "usersTop": [{"user": d.split("„", 1)[-1].rstrip("“"), "n": n} for d, n in _top(
             store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type='SSH-Brute' GROUP BY detail", since, 8)],
+        # Top 8 zeigt nur einen Bruchteil, weil die meisten Namen nur einmal probiert werden
+        "usersAll": dict(zip(("names", "n"), store.query(
+            "SELECT COUNT(DISTINCT detail), COUNT(*) FROM events WHERE ts>=? AND type='SSH-Brute'", (since,))[0])),
         "pathsTop": [{"path": d.split(" → ")[0], "n": n} for d, n in _top(
             store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type IN ('Web-Probe','SQLi/RCE') "
                    "GROUP BY substr(detail, 1, instr(detail, ' → '))", since, 8)],

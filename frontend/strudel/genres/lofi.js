@@ -1,0 +1,51 @@
+// Lo-Fi: langsame, verschleppte Beats, gedämpfte Drums, Jazz-Akkorde, Rauschen.
+export default {
+  key: "lofi", name: "Lo-Fi", color: "#c98500",
+  tracks: [
+    { key: "kick", label: "Kick", code: 's("bd ~ ~ bd ~ ~ bd ~").bank("{B}").lpf(1200)' },
+    { key: "snare", label: "Snare", code: 's("~ sd").bank("{B}").gain(.6).lpf(3000)' },
+    { key: "hats", label: "Hi-Hats", code: 's("hh*8").bank("{B}").gain("[.35 .2]*4").lpf(4000).swingBy(1/6, 4)' },
+    { key: "rim", label: "Rimshot", code: 's("~ ~ ~ rim ~ ~ ~ ~").bank("{B}").gain(.3)' },
+    { key: "shaker", label: "Shaker", code: 's("~ ~ sh ~ ~ sh ~ sh").bank("RolandTR808").gain(.3)' },
+    { key: "vinyl", label: "Vinyl-Rauschen", code: 's("pink").hpf(3000).lpf(9000).gain(.035)' },
+    { key: "bass", label: "Bass", code: 'n("<0 -3 -2 -4>").scale("{K}1:{S}").s("sine").sustain(.5).gain(.9)' },
+    { key: "keys", label: "Piano", code: 'n("<[0,2,4,6] [-3,-1,1,3] [-2,0,2,4] [-4,-2,0,2]>").scale("{K}3:{S}").s("piano").gain(.6).lpf(2400).room(.4)' },
+    { key: "rhodes", label: "E-Piano", code: 'n("<[0,2,4,6] [-3,-1,1,3]>").scale("{K}3:{S}").struct("~ x ~ ~ x ~ ~ ~").s("triangle").decay(.6).sustain(.2).lpf(1800).gain(.3)' },
+    { key: "melody", label: "Melodie", code: 'n("~ 4 ~ [6 4] ~ 2 ~ ~").scale("{K}4:{S}").s("piano").gain(.35).lpf(2000).delay(.3)' },
+    { key: "bells", label: "Glocken", code: 'n("~ ~ 7 ~ ~ ~ <9 11> ~").scale("{K}5:{S}").s("sine").decay(.5).sustain(0).gain(.15).delay(.5)' },
+    { key: "pad", label: "Pad", code: 'n("<[0,4] [-1,3]>").scale("{K}3:{S}").s("triangle").attack(.6).release(2).gain(.35).slow(2)' },
+  ],
+  variants: [
+    { key: "hiphop", name: "Lo-Fi Hip-Hop", bpm: 82, bank: "LinnDrum", scale: "major", key0: "D",
+      desc: "Der Klassiker zum Lernen: Piano, Rauschen, Swing", on: ["kick", "snare", "hats", "vinyl", "bass", "keys"], tracks: {} },
+    { key: "jazzhop", name: "Jazzhop", bpm: 88, bank: "AkaiMPC60", scale: "dorian", key0: "A",
+      desc: "Jazz-Akkorde, Ride-Swing, walking Bass", on: ["kick", "snare", "hats", "rhodes", "bass", "melody"],
+      tracks: {
+        hats: 's("rd*8").bank("{B}").gain("[.3 .15]*4").swingBy(1/6, 4)',
+        bass: 'n("0 2 4 5 <7 6> 5 4 2").scale("{K}1:{S}").s("triangle").decay(.3).sustain(.2).gain(.8)',
+      } },
+    { key: "chillhop", name: "Chillhop", bpm: 90, bank: "LinnDrum", scale: "major", key0: "F",
+      desc: "Etwas wacher, Melodie im Vordergrund", on: ["kick", "snare", "hats", "shaker", "bass", "keys", "melody"], tracks: {} },
+    { key: "boombap", name: "Boom Bap", bpm: 92, bank: "AkaiMPC60", scale: "minor", key0: "C",
+      desc: "Harte MPC-Drums, 90er-Hip-Hop", on: ["kick", "snare", "hats", "bass", "keys", "vinyl"],
+      tracks: {
+        kick: 's("bd ~ ~ ~ ~ ~ bd bd ~ ~ bd ~ ~ ~ ~ ~").bank("{B}").gain(1.1)',
+        snare: 's("~ sd").bank("{B}").gain(.9)',
+        keys: 'n("<[0,2,4] [-2,0,2]>").scale("{K}3:{S}").struct("x ~ ~ ~ ~ ~ x ~").s("piano").gain(.55).lpf(1800)',
+      } },
+    { key: "lofihouse", name: "Lo-Fi House", bpm: 118, bank: "RolandTR909", scale: "minor", key0: "E",
+      desc: "Four-to-the-floor, alles gedämpft und angezerrt", on: ["kick", "snare", "hats", "vinyl", "bass", "rhodes"],
+      tracks: {
+        kick: 's("bd*4").bank("{B}").lpf(800).shape(.3)',
+        snare: 's("~ cp ~ cp").bank("{B}").gain(.5).lpf(2500)',
+        hats: 's("[~ oh]*4").bank("{B}").gain(.25).lpf(5000)',
+        bass: 'n("[~ 0]*4").scale("{K}1:{S}").s("sawtooth").lpf(400).decay(.2).sustain(0).gain(.6)',
+      } },
+    { key: "sleep", name: "Study / Sleep", bpm: 70, bank: "LinnDrum", scale: "major", key0: "G",
+      desc: "Sehr ruhig, wenig Drums, viel Fläche", on: ["kick", "vinyl", "keys", "pad", "bells"],
+      tracks: {
+        kick: 's("bd ~ ~ ~ ~ ~ ~ ~").bank("{B}").lpf(600).gain(.7)',
+        keys: 'n("<[0,2,4,6] [-3,-1,1,3]>").scale("{K}3:{S}").s("piano").gain(.45).lpf(1500).room(.6).slow(2)',
+      } },
+  ],
+};

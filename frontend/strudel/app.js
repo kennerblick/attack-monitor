@@ -1,8 +1,9 @@
-// Strudel Groove Machine: baut aus Genre, Spuren und Reglern ein Strudel-Programm und spielt es ab.
-// Jede Änderung erzeugt den Code neu und wird live (am Zyklusende) übernommen.
-import { GENRES, LAYERS, KEYS } from "./genres.js";
+// Strudel Groove Machine: baut aus Genre, Variante, Spuren und Reglern ein Strudel-Programm und spielt es ab.
+// Genre/Variante/Spur/Tonart/Tempo erzeugen den Code neu; Regler und Live-FX wirken in Echtzeit (fx.js).
+import { GENRES, KEYS, PAD_KEYS } from "./genres/index.js";
 import { buildCode } from "./code.js";
 import { createLiveView } from "./live.js";
+import { createFx, HOLDS } from "./fx.js";
 
 const $ = id => document.getElementById(id);
 const SAMPLE_BANKS = [
@@ -12,30 +13,35 @@ const SAMPLE_BANKS = [
 ];
 
 const state = {
-  genre: GENRES[0], key: GENRES[0].key0, on: new Set(GENRES[0].on), playing: false, ready: false,
-  macro: { filter: 100, space: 25, echo: 20, drive: 0, volume: 80 }, bpm: GENRES[0].bpm,
+  genre: GENRES[0], variant: GENRES[0].variants[0], key: "A", on: new Set(), bpm: 120, playing: false, ready: false,
+  macro: { filter: 0, space: 25, echo: 20, drive: 0, volume: 80 },
 };
+const fx = createFx(state);
 
 let timer = null;
 let audioReady = null;
 let repl = null; // von initStrudel; repl.stop() hält den Scheduler wirklich an
 let suspendTimer = null;
+let pattern = null; // zuletzt ausgewertetes Pattern, für die Live-Markierung
 const live = createLiveView({
   code: $("code"), bar: $("bar"), beats: $("beats"), cycle: $("cycle"),
-  ignore: text => text === state.genre.bank || text.includes(":"),
+  ignore: text => text === state.variant.bank || text.includes(":"),
 });
 
 function apply() {
-  const code = buildCode(state);
   clearTimeout(timer);
-  if (!state.playing) { live.show(code); return; }
+  if (!state.playing) { pattern = null; live.show(buildCode(state)); return; }
   timer = setTimeout(async () => {
-    const pattern = await repl.evaluate(code);
+    const result = await repl.evaluate(buildCode(state, { live: true }));
     // Stopp während der Auswertung: evaluate hat den Scheduler gerade (wieder) gestartet
     if (!state.playing) { repl.stop(); return; }
-    if (pattern) live.show(code, pattern, repl.scheduler);
+    if (result) { pattern = result; live.show(buildCode(state), pattern, repl.scheduler); }
   }, 120);
 }
+
+// Regler ändern nur die Anzeige; der Klang folgt über grooveFx sofort
+const refreshCode = () => live.show(buildCode(state), pattern, pattern && repl.scheduler);
+const playingText = () => `▶ ${state.genre.name} · ${state.variant.name} · ${state.key} ${state.variant.scale} · ${state.bpm} BPM`;
 
 function showStatus(text, cls = "") {
   $("status").textContent = text;
@@ -54,7 +60,7 @@ async function togglePlay() {
     await audioReady;
     await window.getAudioContext().resume();
     apply();
-    showStatus(`▶ ${state.genre.name} · ${state.key} ${state.genre.scale} · ${state.bpm} BPM`, "ok");
+    showStatus(playingText(), "ok");
   } else {
     // Nicht window.hush(): das globale hush wird nach dem ersten evaluate durch eine Variante
     // ersetzt, die nur die Pattern-Liste leert – der Scheduler spielt dann weiter.
@@ -67,12 +73,12 @@ async function togglePlay() {
   }
 }
 
-function selectGenre(g) {
-  Object.assign(state, { genre: g, key: g.key0, bpm: g.bpm, on: new Set(g.on) });
-  $("bpm").value = g.bpm;
+function selectVariant(genre, variant) {
+  Object.assign(state, { genre, variant, key: variant.key0, bpm: variant.bpm, on: new Set(variant.on) });
+  $("bpm").value = variant.bpm;
   render();
   apply();
-  if (state.playing) showStatus(`▶ ${g.name} · ${state.key} ${g.scale} · ${g.bpm} BPM`, "ok");
+  if (state.playing) showStatus(playingText(), "ok");
 }
 
 function toggleLayer(key) {
@@ -84,10 +90,19 @@ function toggleLayer(key) {
 function render() {
   document.documentElement.style.setProperty("--genre", state.genre.color);
   $("genres").innerHTML = GENRES.map(g =>
-    `<button class="genre" data-key="${g.key}" aria-pressed="${g === state.genre}" style="--c:${g.color}"><b>${g.name}</b><small>${g.bpm} BPM</small></button>`).join("");
-  $("genres").querySelectorAll("button").forEach(b => { b.onclick = () => selectGenre(GENRES.find(g => g.key === b.dataset.key)); });
-  $("pads").innerHTML = LAYERS.map(l =>
-    `<button class="pad" data-key="${l.key}" aria-pressed="${state.on.has(l.key)}"><b>${l.label}</b><kbd>${l.hint}</kbd></button>`).join("");
+    `<button class="genre" data-key="${g.key}" aria-pressed="${g === state.genre}" style="--c:${g.color}"><b>${g.name}</b><small>${g.variants.length} Varianten</small></button>`).join("");
+  $("genres").querySelectorAll("button").forEach(b => {
+    b.onclick = () => { const g = GENRES.find(x => x.key === b.dataset.key); selectVariant(g, g.variants[0]); };
+  });
+  $("variants-title").textContent = state.genre.name;
+  $("variants").innerHTML = state.genre.variants.map(v =>
+    `<button class="variant" data-key="${v.key}" aria-pressed="${v === state.variant}"><b>${v.name}</b>` +
+    `<small>${v.bpm} BPM · ${v.key0} ${v.scale}</small><span>${v.desc}</span></button>`).join("");
+  $("variants").querySelectorAll("button").forEach(b => {
+    b.onclick = () => selectVariant(state.genre, state.genre.variants.find(v => v.key === b.dataset.key));
+  });
+  $("pads").innerHTML = state.genre.tracks.map((t, i) =>
+    `<button class="pad" data-key="${t.key}" aria-pressed="${state.on.has(t.key)}"><b>${t.label}</b><kbd>${PAD_KEYS[i].toUpperCase()}</kbd></button>`).join("");
   $("pads").querySelectorAll("button").forEach(b => { b.onclick = () => toggleLayer(b.dataset.key); });
   $("keys").innerHTML = KEYS.map(k => `<button data-k="${k}" aria-pressed="${k === state.key}">${k}</button>`).join("");
   $("keys").querySelectorAll("button").forEach(b => { b.onclick = () => { state.key = b.dataset.k; render(); apply(); }; });
@@ -98,12 +113,17 @@ function bindMacros() {
   document.querySelectorAll("[data-macro]").forEach(input => {
     const out = input.parentElement.querySelector("output");
     const update = () => {
-      state.macro[input.dataset.macro] = Number(input.value);
-      input.style.setProperty("--v", input.value);
-      out.textContent = `${input.value}%`;
+      const v = Number(input.value);
+      state.macro[input.dataset.macro] = v;
+      out.textContent = input.dataset.macro !== "filter" ? `${v}%`
+        : Math.abs(v) <= 2 ? "offen" : v < 0 ? `LP ${-v}%` : `HP ${v}%`;
     };
-    input.addEventListener("input", () => { update(); apply(); });
+    input.addEventListener("input", () => { update(); refreshCode(); });
     update();
+  });
+  // Doppelklick setzt den DJ-Filter auf die Mitte zurück
+  document.querySelector("[data-macro=filter]").addEventListener("dblclick", e => {
+    e.target.value = 0; e.target.dispatchEvent(new Event("input"));
   });
   $("bpm").addEventListener("input", e => { state.bpm = Number(e.target.value); $("bpm-out").textContent = state.bpm; apply(); });
 }
@@ -133,11 +153,31 @@ function drawScope() {
   loop();
 }
 
-const SHORTCUTS = Object.fromEntries(LAYERS.map(l => [l.hint.toLowerCase(), l.key]));
+// Live-FX wirken, solange Taste oder Knopf gehalten werden
+function bindHolds() {
+  $("holds").innerHTML = HOLDS.map(h => `<button class="hold" data-fx="${h.key}"><b>${h.label}</b><kbd>${h.hint}</kbd></button>`).join("");
+  $("holds").querySelectorAll("button").forEach(b => {
+    const on = e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add("on"); fx.press(b.dataset.fx); };
+    const off = () => { b.classList.remove("on"); fx.release(b.dataset.fx); };
+    b.addEventListener("pointerdown", on);
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => b.addEventListener(ev, off));
+  });
+}
+const holdButton = key => $("holds").querySelector(`[data-fx="${HOLDS.find(h => h.hint === key)?.key}"]`);
+
 addEventListener("keydown", e => {
-  if (e.target.matches("input, textarea")) return;
+  if (e.target.matches("input, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
+  const key = e.key.toLowerCase();
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
-  else if (SHORTCUTS[e.key.toLowerCase()]) toggleLayer(SHORTCUTS[e.key.toLowerCase()]);
+  else if (holdButton(key)) { if (!e.repeat) { holdButton(key).classList.add("on"); fx.press(holdButton(key).dataset.fx); } }
+  else if (PAD_KEYS.includes(key) && !e.repeat) {
+    const track = state.genre.tracks[PAD_KEYS.indexOf(key)];
+    if (track) toggleLayer(track.key);
+  }
+});
+addEventListener("keyup", e => {
+  const b = holdButton(e.key.toLowerCase());
+  if (b) { b.classList.remove("on"); fx.release(b.dataset.fx); }
 });
 
 $("play").onclick = togglePlay;
@@ -147,9 +187,9 @@ $("repl").onclick = () => {
   window.open(`https://strudel.cc/#${btoa(unescape(encodeURIComponent(code)))}`, "_blank", "noopener");
 };
 
-render();
+selectVariant(GENRES[0], GENRES[0].variants[0]);
 bindMacros();
-apply();
+bindHolds();
 drawScope();
 showStatus("Lade Samples …");
 window.initStrudel({

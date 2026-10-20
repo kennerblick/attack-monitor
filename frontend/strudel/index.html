@@ -15,33 +15,41 @@
 </header>
 
 <main class="machine">
+<aside class="side" aria-label="Varianten">
+  <h2>Varianten <em id="variants-title"></em></h2>
+  <div class="variants" id="variants"></div>
+</aside>
+
 <div class="controls">
   <section class="deck">
-    <div class="transport">
-      <button id="play" class="play" aria-label="Play"><span class="tri"></span><span class="sq"></span></button>
-      <div>
-        <h1>Groove Machine</h1>
-        <p id="status" class="status">Lade …</p>
-      </div>
+    <button id="play" class="play" aria-label="Play"><span class="tri"></span><span class="sq"></span></button>
+    <div class="title">
+      <h1>Groove Machine</h1>
+      <p id="status" class="status">Lade …</p>
     </div>
     <canvas id="scope" class="scope" aria-hidden="true"></canvas>
   </section>
 
   <section>
-    <h2>1 · Genre</h2>
+    <h2>1 · Genre <em>Variante links wählen</em></h2>
     <div class="genres" id="genres"></div>
   </section>
 
   <section>
-    <h2>2 · Spuren <em>Klick oder Taste</em></h2>
+    <h2>2 · Spuren <em>Klick oder Taste Q–Z / A–H</em></h2>
     <div class="pads" id="pads"></div>
+  </section>
+
+  <section>
+    <h2>3 · Live-FX <em>gedrückt halten · Maus, Finger oder Taste 1–6</em></h2>
+    <div class="holds" id="holds"></div>
   </section>
 
   <section class="grid2">
     <div>
-      <h2>3 · Sound formen</h2>
+      <h2>4 · Sound formen <em>wirkt sofort</em></h2>
       <div class="macros">
-        <label class="macro"><span>Filter</span><input type="range" min="5" max="100" value="100" data-macro="filter"><output></output></label>
+        <label class="macro dj" title="Links: Low-Pass (dumpf) · Rechts: High-Pass (dünn) · Doppelklick: Mitte"><span>DJ-Filter <i>LP ◂ ▸ HP</i></span><input type="range" min="-100" max="100" value="0" data-macro="filter"><output></output></label>
         <label class="macro"><span>Raum</span><input type="range" min="0" max="100" value="25" data-macro="space"><output></output></label>
         <label class="macro"><span>Echo</span><input type="range" min="0" max="100" value="20" data-macro="echo"><output></output></label>
         <label class="macro"><span>Drive</span><input type="range" min="0" max="100" value="0" data-macro="drive"><output></output></label>
@@ -55,7 +63,7 @@
     </div>
   </section>
 
-  <p class="hint">Tipp: Leertaste = Play/Stopp · Q W E R / A S D F = Spuren. Klang-Engine: <a href="https://strudel.cc" rel="noopener">Strudel</a> (AGPL-3.0), Samples: Tidal Dirt-Samples, tidal-drum-machines, Salamander Piano (von GitHub geladen).</p>
+  <p class="hint">Tipp: Leertaste = Play/Stopp · Q W E R T Z / A S D F G H = Spuren · 1–6 halten = Live-FX. Klang-Engine: <a href="https://strudel.cc" rel="noopener">Strudel</a> (AGPL-3.0), Samples: Tidal Dirt-Samples, tidal-drum-machines, Salamander Piano (von GitHub geladen).</p>
 </div>
 
 <aside class="live" aria-label="Live-Code">

@@ -1,0 +1,42 @@
+// Synthwave: 80er-Drumcomputer mit Gated Reverb, Achtel-Bass, Supersaw-Flächen.
+export default {
+  key: "synthwave", name: "Synthwave", color: "#d55181",
+  tracks: [
+    { key: "kick", label: "Kick", code: 's("bd ~ bd ~").bank("{B}")' },
+    { key: "snare", label: "Snare (Gated)", code: 's("~ sd ~ sd").bank("{B}").gain(.8).room(.5).roomsize(3)' },
+    { key: "hats", label: "Hi-Hats", code: 's("hh*8").bank("{B}").gain(.35)' },
+    { key: "clap", label: "Clap", code: 's("~ cp ~ cp").bank("{B}").gain(.4)' },
+    { key: "toms", label: "Tom-Fill", code: 's("<~ ~ ~ [~ ~ ~ ~ ht mt lt lt]>").bank("{B}").gain(.5).room(.4)' },
+    { key: "tamb", label: "Tamburin", code: 's("~ ~ ~ ~ ~ ~ ~ tb").bank("LinnDrum").gain(.4)' },
+    { key: "bass", label: "Achtel-Bass", code: 'n("<0 -2 -4 -3>").struct("x*8").scale("{K}1:{S}").s("sawtooth").lpf(700).decay(.12).sustain(.2).gain(.6)' },
+    { key: "arp", label: "Arpeggio", code: 'n("<[0 2 4 7]*4 [-2 0 2 5]*4>").scale("{K}3:{S}").s("square").lpf(2500).decay(.08).sustain(0).gain(.18).delay(.3)' },
+    { key: "chords", label: "Akkorde", code: 'n("<[0,2,4] [-2,0,2] [-4,-2,0] [-3,-1,1]>").scale("{K}3:{S}").s("supersaw").attack(.05).release(.6).lpf(2600).gain(.3)' },
+    { key: "lead", label: "Lead", code: 'n("<[7 ~ 6 4] [2 ~ 4 ~] [0 ~ 2 4] [6 4 2 ~]>").scale("{K}4:{S}").s("sawtooth").lpf(2800).attack(.01).decay(.25).sustain(.3).gain(.25).delay(.4)' },
+    { key: "pad", label: "Pad", code: 'n("<[0,4,7] [-2,2,5]>").scale("{K}2:{S}").s("supersaw").attack(2).release(2).lpf(900).gain(.15).slow(2)' },
+    { key: "riser", label: "Noise-Riser", code: 's("pink").lpf(saw.range(300,6000).slow(4)).gain(saw.range(0,.08).slow(4))' },
+  ],
+  variants: [
+    { key: "outrun", name: "Outrun", bpm: 110, bank: "LinnDrum", scale: "minor", key0: "C",
+      desc: "Nachtfahrt: treibender Achtel-Bass, Lead", on: ["kick", "snare", "hats", "bass", "lead", "chords"], tracks: {} },
+    { key: "dreamwave", name: "Dreamwave", bpm: 90, bank: "LinnDrum", scale: "major", key0: "F",
+      desc: "Verträumt, langsam, viel Hall", on: ["kick", "snare", "hats", "bass", "pad", "arp"],
+      tracks: { snare: 's("~ sd ~ sd").bank("{B}").gain(.7).room(.8).roomsize(6)' } },
+    { key: "darksynth", name: "Darksynth", bpm: 120, bank: "RolandTR909", scale: "phrygian", key0: "E",
+      desc: "Düster, verzerrter Bass (Carpenter Brut)", on: ["kick", "snare", "hats", "bass", "lead", "riser"],
+      tracks: {
+        kick: 's("bd*4").bank("{B}").shape(.4)',
+        bass: 'n("<0 0 1 -1>").struct("x*16").scale("{K}1:{S}").s("sawtooth").lpf(sine.range(300,1200).slow(4)).shape(.5).decay(.1).sustain(0).gain(.5)',
+      } },
+    { key: "chillwave", name: "Chillwave", bpm: 85, bank: "LinnDrum", scale: "major", key0: "A",
+      desc: "Verwaschen, warm, gefiltert", on: ["kick", "clap", "hats", "chords", "pad", "bass"],
+      tracks: { chords: 'n("<[0,2,4,6] [-3,-1,1,3]>").scale("{K}3:{S}").s("supersaw").attack(.4).release(1).lpf(1200).gain(.25).room(.6)' } },
+    { key: "popwave", name: "Popwave", bpm: 105, bank: "LinnDrum", scale: "major", key0: "D",
+      desc: "Eingängige Hook, Dur, Tamburin", on: ["kick", "snare", "hats", "tamb", "bass", "lead", "chords"], tracks: {} },
+    { key: "italo", name: "Italo Disco", bpm: 120, bank: "RolandTR707", scale: "minor", key0: "G",
+      desc: "Oktav-Bass, 707-Drums, Arpeggio", on: ["kick", "clap", "hats", "bass", "arp", "chords"],
+      tracks: {
+        kick: 's("bd*4").bank("{B}")',
+        bass: 'n("<[0 7]*4 [-2 5]*4 [-4 3]*4 [-3 4]*4>").scale("{K}1:{S}").s("sawtooth").lpf(1000).decay(.1).sustain(.1).gain(.55)',
+      } },
+  ],
+};

@@ -6,7 +6,7 @@ Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länd
 SSH-Benutzernamen, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
-**Strudel Groove Machine** (mit Live-Code-Ansicht und Markierung der gerade klingenden Stellen), die
+**Strudel Groove Machine** (6 Genres mit je 6–8 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen), die
 Übersicht der Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
 
 ## Schnellstart
