@@ -33,6 +33,23 @@ Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nac
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.
 Danach setzt es an gespeicherten Offsets fort.
 
+## Besucherstatistik (intern)
+
+`https://3lis.de/besucher/` hinter Authelia (Zwei-Faktor). Zeigt Besucher und Aufrufe pro Tag,
+Monat und Jahr, den Trend (7 und 30 Tage, gleitender 7-Tage-Schnitt), Top-Seiten und die Herkunft.
+Quelle ist das eigene Log `/var/log/nginx/3lis.access.log`. Beim ersten Start liest das Backend
+einmalig die alten gemischten `access.log*` nach, bis zum Beginn des eigenen Logs (`backend/visits.py`).
+
+- Ein Aufruf zählt nur, wenn er von einem Browser kommt, der am selben Tag auch Ressourcen mit Referer
+  3lis.de nachlädt. Rund 97 % der Abrufe mit Browser-Kennung sind Bots, die nur das HTML holen.
+  IPs, die schon als Angreifer erfasst sind, fallen ebenfalls heraus.
+- Ein Besucher ist ein Hash aus IP und User-Agent mit einem Tages-Salt, der nur im RAM liegt. Es gibt
+  keine Cookies. Ein Neustart am selben Tag kann einen Besucher doppelt zählen. Monats- und
+  Jahreswerte sind die Summe der Tageswerte.
+- nginx: `deploy/nginx-3lis-besucher.conf` ist im Vhost `default` eingebunden
+  (`include /etc/nginx/snippets/3lis-besucher.conf;`). Authelia braucht die Regel für die Domain
+  `3lis.de` mit den Ressourcen `^/besucher/` und `^/api/visits$`.
+
 ## Konfiguration
 
 | Variable | Default | Zweck |

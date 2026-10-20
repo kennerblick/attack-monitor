@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3lis.de · Besucher</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="besucher.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/"><span class="brand-mark">3L</span><span>3LIS.DE<small>BESUCHER · INTERN</small></span></a>
+  <nav class="nav"><a href="/">Monitor</a><a href="/strudel/">Strudel</a><a href="/lernen/">Lernen</a></nav>
+</header>
+<main class="visits">
+  <section class="kpis" id="kpis"></section>
+  <section class="card">
+    <h2>Besucher pro Tag <small>Balken · Linie = 7-Tage-Schnitt</small></h2>
+    <svg id="chart" role="img" aria-label="Besucher pro Tag"></svg>
+  </section>
+  <div class="grid">
+    <section class="card"><h2>Pro Monat</h2><table id="monthly"></table></section>
+    <section class="card"><h2>Pro Jahr</h2><table id="yearly"></table></section>
+    <section class="card"><h2>Seiten <small>30 Tage</small></h2><table id="pages"></table></section>
+    <section class="card"><h2>Herkunft <small>30 Tage</small></h2><table id="referrers"></table></section>
+  </div>
+  <p class="note" id="note"></p>
+</main>
+<script type="module" src="besucher.js"></script>
+</body>
+</html>

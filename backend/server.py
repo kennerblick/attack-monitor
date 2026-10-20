@@ -6,6 +6,7 @@ Endpoints (alle JSON, nur lesend):
   /api/stats?range=1h|24h|7d   Kennzahlen, Top-Listen, Zeitleiste, Heatmap
   /api/status            Server-Standort, aktive fail2ban-Bans, Sperrliste
   /api/events?kind=type|cc|asn|port|user|path|jail|ip&value=..&range=..   Vorgänge zu einem Top-Listen-Eintrag
+  /api/visits            Besucherstatistik (nginx schützt den Pfad per Authelia)
   /api/ip?id=<event-id>  Profil der IP hinter einem Event (Verlauf, Verhalten, rDNS, Einstufung, Sperrstatus)
 Angreifer-IPs werden vor der Auslieferung auf /24 gekürzt (DSGVO).
 """
@@ -23,6 +24,7 @@ import geo
 import intel
 import stats
 import tail
+import visits
 from store import Store
 
 DB_PATH = os.environ.get("ATTACK_DB", "/var/lib/attack-monitor/events.db")
@@ -90,7 +92,7 @@ def blocklist_size():
     return len(cached("denied", 300, denied_ips))
 
 
-def make_handler(store, server_location):
+def make_handler(store, server_location, counter):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             url = urlparse(self.path)
@@ -110,6 +112,8 @@ def make_handler(store, server_location):
                     key = q.get("range", ["24h"])[0]
                     key = key if key in stats.RANGES else "24h"  # begrenzt auch die Cache-Schlüssel
                     body = cached(f"stats-{key}", 10, lambda: stats.compute(store, key))
+                elif url.path == "/api/visits":
+                    body = cached("visits", 60, counter.summary)
                 elif url.path == "/api/status":
                     bans = {j: len(ips) for j, ips in cached("banned", 30, f2b_banned).items()}
                     body = {"server": server_location, "bans": bans, "bansTotal": sum(bans.values()),
@@ -135,6 +139,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     store = Store(DB_PATH)
     threading.Thread(target=geo.worker, args=(store,), daemon=True).start()
-    threading.Thread(target=tail.run, args=(store,), daemon=True).start()
+    counter = visits.Visits(store)
+    threading.Thread(target=tail.run, args=(store, counter), daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
-    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location())).serve_forever()
+    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter)).serve_forever()

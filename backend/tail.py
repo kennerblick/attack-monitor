@@ -9,6 +9,7 @@ import gzip
 import os
 import time
 
+import visits
 from parsers import PARSERS
 
 LOGS = {
@@ -54,7 +55,7 @@ def seed_history(store):
                 print(f"seed {f}: {exc}", flush=True)
 
 
-def _read_new(store, source, path):
+def _read_new(store, path, handle):
     try:
         st = os.stat(path)
     except OSError:
@@ -68,20 +69,25 @@ def _read_new(store, source, path):
         fh.seek(pos)
         lines = fh.readlines()
         new_pos = fh.tell()
-    store.add_events(_parse_lines(source, lines, time.time() - HISTORY))
+    handle(lines)
     store.set_offset(path, st.st_ino, new_pos)
 
 
-def run(store):
+def run(store, counter):
     if store.is_empty():
         seed_history(store)
+    if counter.is_empty():
+        counter.seed()  # nach den Events, damit getarnte Angreifer-IPs schon bekannt sind
+    readers = {path: lambda lines, s=source: store.add_events(_parse_lines(s, lines, time.time() - HISTORY))
+               for source, path in LOGS.items()}
+    readers[visits.LOG] = counter.ingest
     last_prune = 0
     while True:
-        for source, path in LOGS.items():
+        for path, handle in readers.items():
             try:
-                _read_new(store, source, path)
+                _read_new(store, path, handle)
             except Exception as exc:  # eine kaputte Quelle darf die anderen nicht stoppen
-                print(f"tail {source}: {exc}", flush=True)
+                print(f"tail {path}: {exc}", flush=True)
         if time.time() - last_prune > 3600:
             store.prune()
             last_prune = time.time()

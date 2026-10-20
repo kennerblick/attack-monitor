@@ -1,10 +1,13 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
+import os
+import tempfile
 import time
 import unittest
 
 import intel
 import parsers
 import stats
+import visits
 from server import mask
 from store import Store
 
@@ -109,6 +112,50 @@ class IntelTests(unittest.TestCase):
     def test_mask_host(self):
         self.assertEqual(intel.mask_host("1-2-3-4.dsl.example.net", "1.2.3.4"), "1-2-3-x.dsl.example.net")
         self.assertEqual(intel.mask_host("4.3.2.1.in-addr.example", "1.2.3.4"), "x.3.2.1.in-addr.example")
+
+
+class VisitsTests(unittest.TestCase):
+    UA = "Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0"
+
+    def line(self, path, ip="5.6.7.8", ua=UA, status=200, ref="-", day="20"):
+        return f'{ip} - - [{day}/Oct/2026:09:00:00 +0200] "GET {path} HTTP/2.0" {status} 9 "{ref}" "{ua}"'
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        os.makedirs(os.path.join(self.root, "strudel"))
+        self.store = Store(":memory:")
+        self.counter = visits.Visits(self.store)
+
+    def test_parse_filters(self):
+        parse = lambda line, mixed=False: visits.parse(line, mixed, self.root)
+        self.assertEqual(parse(self.line("/strudel/index.html?x=1", ref="https://www.google.com/"))[4:],
+                         ("/strudel/", "google.com"))
+        self.assertIsNone(parse(self.line("/.env")))
+        self.assertIsNone(parse(self.line("/gibtsnicht/")))
+        self.assertIsNone(parse(self.line("/assets/js/main.js")))
+        self.assertIsNone(parse(self.line("/", status=404)))
+        self.assertIsNone(parse(self.line("/", ua="Mozilla/5.0 (compatible; Googlebot/2.1)")))
+        self.assertIsNone(parse(self.line("/", ua="curl/8.0")))
+        self.assertIsNotNone(parse(self.line("/", ref="https://home.3lis.de/")))
+        self.assertIsNone(parse(self.line("/", ref="https://home.3lis.de/"), mixed=True))
+        self.assertIsNone(parse(self.line("/x.css", ref="https://home.3lis.de/")))
+        self.assertIsNone(parse(self.line("/x.css", ref="https://3lis.de/"))[4])  # Ressource -> Browser-Beleg
+        self.assertIsNone(parse(self.line("/", ref="http://178.254.36.104/"))[5])
+
+    def test_summary_counts_daily_visitors(self):
+        self.store.add_events([parsers.event(NOW, "9.9.9.9", "Port-Scan", "low", "syslog", 22, "x")])
+        own = "https://3lis.de/"
+        self.counter.ingest([self.line("/"), self.line("/strudel/"), self.line("/", ip="1.1.1.1"),
+                             self.line("/", day="19"), self.line("/", ip="9.9.9.9"), self.line("/", ip="2.2.2.2"),
+                             # nur wer Ressourcen nachlädt, zählt; 2.2.2.2 holt nur das HTML
+                             self.line("/api/feed", ref=own), self.line("/x.css", ip="1.1.1.1", ref=own),
+                             self.line("/api/feed", day="19", ref=own), self.line("/api/feed", ip="9.9.9.9", ref=own)],
+                            root=self.root)
+        s = self.counter.summary(today=visits.date(2026, 10, 20))
+        self.assertEqual(s["daily"], [{"day": "2026-10-19", "visitors": 1, "views": 1},
+                                      {"day": "2026-10-20", "visitors": 2, "views": 3}])
+        self.assertEqual(s["monthly"], [{"period": "2026-10", "visitors": 3, "views": 4}])
+        self.assertEqual(s["pages"][0], ("/", 3))
 
 
 class MaskTests(unittest.TestCase):
