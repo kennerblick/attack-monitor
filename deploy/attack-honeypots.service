@@ -1,4 +1,4 @@
-# Honeypots (MySQL, Postgres, SSH, FTP, Telnet) getrennt vom Hauptprozess: eigener Benutzer ohne Shell,
+# Honeypots (MySQL, Postgres, SSH, FTP, Telnet, PHP) getrennt vom Hauptprozess: eigener Benutzer ohne Shell,
 # nur CAP_NET_BIND_SERVICE für Ports < 1024, Dateisystem schreibgeschützt bis auf die Event-Datenbank.
 [Unit]
 Description=3lis.de Honeypots (unprivilegiert)

@@ -33,6 +33,7 @@ weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Web
 | SSH-Honeypot | Port 22 (`backend/honeypot_ssh.py`) | SSH-Probe (Benutzer, Passwort bzw. Schlüssel-Fingerprint, Befehle) |
 | FTP-Honeypot | Port 21 (`backend/honeypot_ftp.py`) | FTP-Probe (Benutzer, Passwort) |
 | Telnet-Honeypot | Port 23 (`backend/honeypot_telnet.py`) | Telnet-Probe (Benutzer, Passwort, Befehle) |
+| PHP-Honeypot | `*.php` über nginx → 127.0.0.1:8098 (`backend/honeypot_php.py`) | PHP-Probe (WordPress-Login, Payloads aus Query/Body) |
 
 Ausgeführt wird nie etwas; Verbindungen ohne Login zählen als „Server-Erkennung“. FTP lehnt jede Anmeldung
 ab. SSH (nur Passwort, Schlüssel werden abgelehnt) und Telnet nehmen jede Anmeldung an und
@@ -51,6 +52,11 @@ SSH erlaubt nur Session-Kanäle, kein Port-Forwarding (sonst offener Proxy).
   in `/var/lib/attack-monitor/ssh_host_rsa_key`. Das echte sshd läuft auf 22022.
 - FTP spielt vsftpd und liest `USER`/`PASS` im Klartext, höchstens 20 Befehle je Verbindung.
 
+- PHP: nginx leitet jede `.php`-Anfrage außer `/lernen/index.php` und `/portsentry/*.php` an den Honeypot
+  (`deploy/nginx-3lis-php-honeypot.conf`, im Vhost vor `location ~ \.php$` einbinden). Er meldet
+  `X-Powered-By: PHP/8.2.34` (Köder für PHP2Shell, CVE-2026-109618/-109619), liefert ein falsches `phpinfo()`
+  und eine WordPress-Anmeldung. Gezählt werden nur Anfragen mit Parametern oder Body (gekürzt, wie ein
+  Befehl) und WordPress-Logins; reine Scans stehen schon als Web-Probe im nginx-Log.
 - Telnet spielt den Login-Prompt eines Routers und filtert die Telnet-Optionsverhandlung heraus.
   portsentry überwacht die Ports 21, 22 und 23 nicht mehr, weil sie belegt sind.
 

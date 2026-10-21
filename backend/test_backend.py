@@ -1,4 +1,5 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
+import http.client
 import os
 import socket
 import struct
@@ -9,6 +10,7 @@ import unittest
 
 import honeypot_ftp
 import honeypot_mysql
+import honeypot_php
 import honeypot_postgres
 import honeypot_ssh
 import honeypot_telnet
@@ -261,6 +263,32 @@ class FTPHoneypotTests(HoneypotBase):
         s = stats.compute(self.store, "24h")
         self.assertEqual(s["passwordsTop"], [{"password": '123"456"', "n": 1}])
         self.assertEqual(self.store.events_where("password", '123"456"', 0)[0], 1)
+
+
+class PHPHoneypotTests(HoneypotBase):
+    def setUp(self):
+        self.start(honeypot_php.PHPHoneypot(Store(":memory:"), port=0))
+
+    def request(self, method, path, body=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.pot.port, timeout=5)
+        conn.request(method, path, body, {"X-Real-IP": "203.0.113.7",
+                                          "Content-Type": "application/x-www-form-urlencoded"})
+        resp = conn.getresponse()
+        return resp.getheader("X-Powered-By"), resp.read()
+
+    def test_scan_without_payload_not_recorded(self):
+        powered, page = self.request("GET", "/phpinfo.php")
+        self.assertEqual(powered, "PHP/8.2.34")
+        self.assertIn(b"PHP Version 8.2.34", page)
+        self.assertEqual(self.wait_events(1), [])
+
+    def test_wordpress_login_and_payload_recorded(self):
+        self.request("POST", "/wp-login.php", "log=admin&pwd=geheim%21")
+        self.request("POST", "/x/shell.php?c=id", "<?php system('id'); ?>")
+        rows = self.wait_events(2)
+        self.assertEqual(rows[0], ("PHP-Probe", "high", "Login-Versuch als „admin“ · Passwort „geheim!“"))
+        self.assertEqual(rows[1], ("PHP-Probe", "crit", "Befehl „POST /x/shell.php c=id <?php system('id'); ?>“"))
+        self.assertEqual(self.store.query("SELECT DISTINCT ip, port FROM events"), [("203.0.113.7", 443)])
 
 
 class SSHHoneypotTests(HoneypotBase):

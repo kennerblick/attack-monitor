@@ -44,7 +44,7 @@ export function renderTypes(stats, active, onToggle, onPick) {
   $("legend").querySelectorAll(".chip").forEach(b => { b.onclick = () => onToggle(b.dataset.type); });
 }
 
-const LOGIN_SOURCE = { "SSH-Brute": "SSH", "SSH-Probe": "SSH :22", "FTP-Probe": "FTP", "Telnet-Probe": "Telnet", "MySQL-Probe": "MySQL", "Postgres-Probe": "Postgres" };
+const LOGIN_SOURCE = { "SSH-Brute": "SSH", "SSH-Probe": "SSH :22", "FTP-Probe": "FTP", "Telnet-Probe": "Telnet", "MySQL-Probe": "MySQL", "Postgres-Probe": "Postgres", "PHP-Probe": "WordPress" };
 
 // onPick(kind, value, title): öffnet die Vorgänge zu einem Eintrag (kind = Filter in /api/events)
 export function renderLists(stats, onCountry, onPick) {

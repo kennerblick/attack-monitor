@@ -7,6 +7,7 @@ import threading
 
 from honeypot_ftp import FTPHoneypot
 from honeypot_mysql import MySQLHoneypot
+from honeypot_php import PHPHoneypot
 from honeypot_postgres import PostgresHoneypot
 from honeypot_ssh import SSHHoneypot
 from honeypot_telnet import TelnetHoneypot
@@ -16,7 +17,7 @@ DB_PATH = os.environ.get("ATTACK_DB", "/var/lib/attack-monitor/events.db")
 
 if __name__ == "__main__":
     store = Store(DB_PATH)
-    pots = [MySQLHoneypot, PostgresHoneypot, SSHHoneypot, FTPHoneypot, TelnetHoneypot]
+    pots = [MySQLHoneypot, PostgresHoneypot, SSHHoneypot, FTPHoneypot, TelnetHoneypot, PHPHoneypot]
     threads = [threading.Thread(target=pot(store).serve, daemon=True) for pot in pots]
     for t in threads:
         t.start()

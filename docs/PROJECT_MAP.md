@@ -1,7 +1,7 @@
 # Projektkarte
 
 ## Datenfluss
-Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
+Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 und `*.php` (nginx → :8098) → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
@@ -24,6 +24,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `honeypot_postgres.py` | Postgres :5432 (Klartext-Passwort anfordern, Login annehmen, SQL mitschneiden) → `Postgres-Probe` |
 | `honeypot_ssh.py` | SSH :22 via paramiko (Schlüssel abgelehnt, Passwort angenommen → Fake-Shell/Exec, nur Session-Kanäle) → `SSH-Probe` |
 | `honeypot_telnet.py` | Telnet :23 (Router-Login, IAC filtern, jede Anmeldung → Fake-Shell) → `Telnet-Probe` |
+| `honeypot_php.py` | PHP hinter nginx (127.0.0.1:8098, X-Real-IP): PHP 8.2.34 vortäuschen, WordPress-Login und Payloads mitschneiden → `PHP-Probe` |
 | `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event „Befehl „…““ (crit); `MAX_COMMANDS` gilt auch für SQL |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
@@ -55,4 +56,5 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
 
 ## Deploy
 `deploy/deploy.sh` (root), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
-nginx-Snippet `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`).
+nginx-Snippets `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`)
+und `deploy/nginx-3lis-php-honeypot.conf` (`.php` → Honeypot, nur echte Skripte an php-fpm).
