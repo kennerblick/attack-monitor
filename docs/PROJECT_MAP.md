@@ -1,7 +1,7 @@
 # Projektkarte
 
 ## Datenfluss
-Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 und `*.php` (nginx → :8098) → `tail.py`/`honeypot_*.py` (Offsets in DB) → `parsers.py` → SQLite
+Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 und `*.php` (nginx → :8098) → `tail.py`/`honeypot_*.py` (Offsets in DB), Außensensoren über `sensors.py` → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
@@ -12,7 +12,10 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | Datei | Zweck |
 |---|---|
 | `server.py` | HTTP-API, IP-Maskierung, fail2ban-/Sperrlisten-Status, Einstieg Hauptdienst |
-| `honeypots.py` | Einstieg Honeypot-Dienst: startet alle Honeypots |
+| `honeypots.py` | Einstieg Honeypot-Dienst: startet alle Honeypots (`start()`, auch für sensor.py) |
+| `sensor.py` | Einstieg Außensensor (oci-worker): Honeypots + nginx-Web-Probes in lokale DB |
+| `export.py` | erzwungener SSH-Befehl auf dem Sensor: Events ab ID als JSON-Zeilen |
+| `sensors.py` | 3lis.de: holt Sensor-Events minütlich per SSH (Pull), Offset je Sensor in `offsets` |
 | `intel.py` | IP-Profil: rDNS mit Timeout, Einstufung (bekannte Scanner/Clouds/VPN, hosting/mobile), Einschätzung |
 | `tail.py` | Logs fortlaufend lesen, 7-Tage-Seed beim ersten Start, stündliches Prune |
 | `parsers.py` | ein Parser je Quelle → Event-Dict (Zeitstempel aus der Logzeile) |
@@ -30,7 +33,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py` | Unit-Tests (`python3 -m unittest`) |
 
-DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
+DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sensor NULL = 3lis.de),
 `geo(ip, lat, lon, cc, country, city, isp, asn, fetched, org, hosting, proxy, mobile)`, `offsets(path, inode, pos)`,
 `visits(day, ts, visitor, path, ref)`, `humans(day, visitor)` (Besucher mit Ressourcen-Abruf).
 
@@ -55,6 +58,6 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail)`,
 | `impressum.html`, `datenschutz.html` | Rechtstexte |
 
 ## Deploy
-`deploy/deploy.sh` (root), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
+`deploy/deploy.sh` (root), `deploy/sensor/` (Außensensor: Unit, nginx, `deploy-sensor.sh`), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
 nginx-Snippets `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`)
 und `deploy/nginx-3lis-php-honeypot.conf` (`.php` → Honeypot, nur echte Skripte an php-fpm).

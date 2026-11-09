@@ -1,6 +1,6 @@
 // Steuerung: holt Feed (2 s), Statistik (15 s) und Status (30 s) und verteilt sie auf Globus und Panels.
 import { createGlobe } from "./globe.js";
-import { renderKpis, renderTypes, renderLists, renderFeed, toast } from "./panels.js";
+import { renderKpis, renderTypes, renderLists, renderFeed, toast, setSensors } from "./panels.js";
 import { initDrawer, setRange, openList, openEvent, openCountry } from "./drawer.js";
 import { renderTimeline, renderHeatmap } from "./charts.js";
 
@@ -126,8 +126,11 @@ addEventListener("resize", () => redrawStats());
   tick();
   const status = await pollStatus();
   const server = status?.server || { lat: 52.52, lon: 13.4, name: "Berlin" };
+  // Ziele der Bögen: 3lis.de selbst und die Außensensoren (Events tragen den Sensor-Namen)
+  const sites = [{ name: "3lis", lat: server.lat, lon: server.lon, label: "3lis.de" }, ...(status?.sensors || [])];
+  setSensors(sites);
   try {
-    globe = await createGlobe(document.getElementById("globe"), server, { onCountry: showCountry, onEvent: showEvent });
+    globe = await createGlobe(document.getElementById("globe"), sites, { onCountry: showCountry, onEvent: showEvent });
     document.querySelectorAll("[data-globe]").forEach(b => b.addEventListener("click", () => {
       const key = b.dataset.globe;
       if (key === "reset") globe.resetView();

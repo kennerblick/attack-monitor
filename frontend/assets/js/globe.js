@@ -37,7 +37,10 @@ function arcLabel(a) {
     `<small class="tt-hint">Klick: Details</small></div>`;
 }
 
-export async function createGlobe(el, server, { onCountry, onEvent } = {}) {
+// sites: Angriffsziele, [0] = 3lis.de, danach Außensensoren ({name, lat, lon, label})
+export async function createGlobe(el, sites, { onCountry, onEvent } = {}) {
+  const server = sites[0];
+  const target = ev => sites.find(s => s.name === (ev.sensor || "3lis")) || server;
   const topo = await fetch("/assets/vendor/countries-110m.json").then(r => r.json());
   const countries = window.topojson.feature(topo, topo.objects.countries).features;
   countries.forEach(f => {
@@ -84,12 +87,12 @@ export async function createGlobe(el, server, { onCountry, onEvent } = {}) {
     // Ringe: Einschlag am Ursprung
     .ringColor(d => t => `${d.color}${Math.round((1 - t) * 255).toString(16).padStart(2, "0")}`)
     .ringMaxRadius(d => d.r).ringPropagationSpeed(2.4).ringRepeatPeriod(900)
-    .htmlElementsData([{ lat: server.lat, lng: server.lon }])
-    .htmlElement(() => {
+    .htmlElementsData(sites.map(s => ({ lat: s.lat, lng: s.lon, label: s.label })))
+    .htmlElement(d => {
       const tag = document.createElement("div");
       tag.style.cssText = "font:700 10px ui-monospace,monospace;letter-spacing:.14em;color:#e7ecf5;" +
         "background:#3987e5cc;padding:3px 7px;border-radius:6px;transform:translate(-50%,-160%);white-space:nowrap";
-      tag.textContent = "◉ 3LIS.DE";
+      tag.textContent = `◉ ${d.label.toUpperCase()}`;
       return tag;
     });
 
@@ -108,9 +111,8 @@ export async function createGlobe(el, server, { onCountry, onEvent } = {}) {
   new ResizeObserver(fit).observe(el);
   fit();
 
-  const serverRing = { lat: server.lat, lng: server.lon, color: "#4fd1ff", r: 4.5, perm: true };
   let arcs = [];
-  let rings = [serverRing];
+  let rings = sites.map(s => ({ lat: s.lat, lng: s.lon, color: "#4fd1ff", r: 4.5, perm: true }));
   let active = null; // Set der sichtbaren Typen, null = alle
 
   function prune() {
@@ -158,7 +160,8 @@ export async function createGlobe(el, server, { onCountry, onEvent } = {}) {
       if (ev.lat == null || (active && !active.has(ev.type))) return;
       const c = typeInfo(ev.type).color;
       const born = performance.now();
-      arcs.push({ startLat: ev.lat, startLng: ev.lon, endLat: server.lat, endLng: server.lon, colors: [`${c}00`, c], born, ev });
+      const to = target(ev);
+      arcs.push({ startLat: ev.lat, startLng: ev.lon, endLat: to.lat, endLng: to.lon, colors: [`${c}00`, c], born, ev });
       rings.push({ lat: ev.lat, lng: ev.lon, color: c, r: 3, born });
       world.arcsData(arcs).ringsData(rings);
     },

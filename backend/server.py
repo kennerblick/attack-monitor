@@ -4,8 +4,8 @@
 Endpoints (alle JSON, nur lesend):
   /api/feed?since=<id>   neueste Events (max. 80), optional nur neuer als <id>
   /api/stats?range=1h|24h|7d   Kennzahlen, Top-Listen, Zeitleiste, Heatmap
-  /api/status            Server-Standort, aktive fail2ban-Bans, Sperrliste
-  /api/events?kind=type|cc|asn|port|user|password|command|path|jail|ip&value=..&range=..   Vorgänge zu einem Top-Listen-Eintrag
+  /api/status            Server-Standort, Außensensoren, aktive fail2ban-Bans, Sperrliste
+  /api/events?kind=type|cc|asn|port|user|password|command|path|jail|sensor|ip&value=..&range=..   Vorgänge zu einem Top-Listen-Eintrag
   /api/visits            Besucherstatistik (nginx schützt den Pfad per Authelia)
   /api/ip?id=<event-id>  Profil der IP hinter einem Event (Verlauf, Verhalten, rDNS, Einstufung, Sperrstatus)
 Angreifer-IPs werden vor der Auslieferung auf /24 gekürzt (DSGVO).
@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlparse
 
 import geo
 import intel
+import sensors
 import stats
 import tail
 import visits
@@ -92,7 +93,7 @@ def blocklist_size():
     return len(cached("denied", 300, denied_ips))
 
 
-def make_handler(store, server_location, counter):
+def make_handler(store, server_location, counter, sensor_list=()):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             url = urlparse(self.path)
@@ -116,7 +117,7 @@ def make_handler(store, server_location, counter):
                     body = cached("visits", 60, counter.summary)
                 elif url.path == "/api/status":
                     bans = {j: len(ips) for j, ips in cached("banned", 30, f2b_banned).items()}
-                    body = {"server": server_location, "bans": bans, "bansTotal": sum(bans.values()),
+                    body = {"server": server_location, "sensors": sensor_list, "bans": bans, "bansTotal": sum(bans.values()),
                             "blocklist": cached("blocklist", 300, blocklist_size), "ts": time.time()}
                 else:
                     return self.send_error(404)
@@ -141,5 +142,9 @@ if __name__ == "__main__":
     threading.Thread(target=geo.worker, args=(store,), daemon=True).start()
     counter = visits.Visits(store)
     threading.Thread(target=tail.run, args=(store, counter), daemon=True).start()
+    remote = sensors.load()
+    if remote:
+        threading.Thread(target=sensors.worker, args=(store, remote), daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
-    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter)).serve_forever()
+    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter,
+                                             sensors.public(remote))).serve_forever()

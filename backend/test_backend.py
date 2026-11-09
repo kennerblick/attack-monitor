@@ -1,5 +1,6 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
 import http.client
+import json
 import os
 import socket
 import struct
@@ -18,6 +19,7 @@ import fakeshell
 import paramiko
 import intel
 import parsers
+import sensors
 import stats
 import visits
 from server import mask
@@ -95,6 +97,20 @@ class StoreStatsTests(unittest.TestCase):
         self.assertEqual((de["n"], de["ips"], de["types"]), (2, 1, {"Port-Scan": 2}))
         self.assertEqual((s["hotspots"][0]["city"], s["hotspots"][0]["ips"]), ("Berlin", 1))
 
+
+    def test_sensor_export_ingest(self):
+        """Außensensor -> 3lis.de: Events kommen mit Sensor-Namen an, doppelte und neu nummerierte IDs werden erkannt."""
+        remote = Store(":memory:")
+        remote.add_events([parsers.event(time.time(), "9.9.9.9", "SSH-Probe", "high", "honeypot", 22, "x")])
+        lines = lambda after: [json.dumps({"max": remote.query("SELECT MAX(id) FROM events")[0][0]})] + [
+            json.dumps({"id": i, **e}) for i, e in remote.events_after(after)]
+        self.assertEqual(sensors.ingest(self.store, "oci", lines(0)), 1)
+        self.assertIsNone(sensors.ingest(self.store, "oci", lines(0)))  # nichts doppelt
+        self.assertEqual(self.store.events_where("sensor", "oci", 0)[0], 1)
+        self.assertEqual(self.store.events_where("sensor", "3lis", 0)[0], 3)
+        self.assertEqual(stats.compute(self.store, "1h")["sensorsTop"], [{"sensor": "3lis", "n": 3}, {"sensor": "oci", "n": 1}])
+        self.store.set_offset("sensor:oci", 0, 50)  # Sensor-DB neu angelegt (max < letzte ID)
+        self.assertEqual(sensors.ingest(self.store, "oci", lines(0)), 1)
 
     def test_old_geo_rows_are_refetched(self):
         self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", time.time())])

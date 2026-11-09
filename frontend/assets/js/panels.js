@@ -71,16 +71,24 @@ export function renderLists(stats, onCountry, onPick) {
     r => onPick("command", r.command, `Befehl „${esc(r.command)}“ (SSH-/Telnet-/Datenbank-Honeypot)`));
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
     r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
+  bars($("sensors"), stats.sensorsTop || [], r => ({ icon: '<span class="flag">📡</span>', name: esc(sensorName(r.sensor)), color: "#4fd1ff" }),
+    r => onPick("sensor", r.sensor, `Sensor ${esc(sensorName(r.sensor))}`));
   bars($("jails"), stats.jailsTop, r => ({ icon: '<span class="flag">⛓️</span>', name: esc(r.jail), color: "#c98500" }),
     r => onPick("jail", r.jail, `Jail ${esc(r.jail)}`));
 }
 
+// Sensor-Name -> Beschriftung aus /api/status (main.js setzt sie); null/"3lis" = 3lis.de selbst
+let sensorLabels = { "3lis": "3lis.de" };
+export function setSensors(list) { list.forEach(s => { sensorLabels[s.name] = s.label || s.name; }); }
+export const sensorName = name => sensorLabels[name || "3lis"] || name;
+
 export function feedItem(ev) {
   const t = typeInfo(ev.type);
   const where = ev.cc ? `${flag(ev.cc)} ${esc(ev.country)}` : "⏳ lokalisiere …";
+  const via = ev.sensor ? `📡 ${esc(sensorName(ev.sensor))} · ` : "";
   return `<li data-id="${ev.id}" style="--c:${t.color}"><span class="t">${time(ev.ts)}</span>` +
     `<span class="ty" style="color:${t.color}">${t.label}</span><span class="where">${where}</span>` +
-    `<span class="d">${esc(ev.ip)} · ${esc(ev.detail)}</span></li>`;
+    `<span class="d">${via}${esc(ev.ip)} · ${esc(ev.detail)}</span></li>`;
 }
 
 export function renderFeed(events, newIds, onSelect) {

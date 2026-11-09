@@ -12,7 +12,7 @@ RETENTION = 8 * 86400
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY, ts REAL NOT NULL, ip TEXT NOT NULL, type TEXT NOT NULL,
-    sev TEXT, src TEXT, port INTEGER, detail TEXT, jail TEXT);
+    sev TEXT, src TEXT, port INTEGER, detail TEXT, jail TEXT, sensor TEXT);
 CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS events_ip ON events(ip);
 CREATE TABLE IF NOT EXISTS geo (
@@ -21,10 +21,12 @@ CREATE TABLE IF NOT EXISTS geo (
 CREATE TABLE IF NOT EXISTS offsets (path TEXT PRIMARY KEY, inode INTEGER, pos INTEGER);
 """
 
-FEED_COLUMNS = ("id", "ts", "ip", "type", "sev", "src", "port", "detail", "jail",
-                "lat", "lon", "cc", "country", "city", "isp", "asn")
-FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:9])}, g.lat, g.lon, g.cc, g.country, g.city, g.isp, g.asn "
+EVENT_COLUMNS = ("ts", "ip", "type", "sev", "src", "port", "detail", "jail", "sensor")
+FEED_COLUMNS = ("id",) + EVENT_COLUMNS + ("lat", "lon", "cc", "country", "city", "isp", "asn")
+FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:10])}, g.lat, g.lon, g.cc, g.country, g.city, g.isp, g.asn "
                "FROM events e LEFT JOIN geo g ON g.ip=e.ip ")
+LOCAL_SENSOR = "3lis"  # sensor=NULL: Event von 3lis.de selbst; sonst Name des Außensensors (sensors.py)
+SENSOR = f"COALESCE(e.sensor,'{LOCAL_SENSOR}')"
 GEO_EXTRA = ("org", "hosting", "proxy", "mobile")  # später ergänzte Spalten -> Migration in __init__
 
 # Login-Versuche (sshd und Honeypots), Detail jeweils "Login-Versuch als „name“ …" (honeypot.attempt)
@@ -47,6 +49,7 @@ FILTERS = {
     "password": f"{PASSWORDS} AND {LOGIN_PW}=?",
     "command": f"{COMMANDS} AND {COMMAND}=?",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
+    "sensor": f"{SENSOR}=?",
 }
 
 
@@ -60,6 +63,8 @@ class Store:
         for col in GEO_EXTRA:
             if col not in have:
                 self.db.execute(f"ALTER TABLE geo ADD COLUMN {col} {'TEXT' if col == 'org' else 'INTEGER'}")
+        if "sensor" not in {r[1] for r in self.db.execute("PRAGMA table_info(events)")}:
+            self.db.execute("ALTER TABLE events ADD COLUMN sensor TEXT")
         self.lock = threading.Lock()
 
     def query(self, sql, args=()):
@@ -72,11 +77,16 @@ class Store:
     def add_events(self, events):
         if not events:
             return
-        rows = [(e["ts"], e["ip"], e["type"], e["sev"], e["src"], e["port"], e["detail"], e["jail"])
-                for e in events]
+        rows = [tuple(e.get(c) for c in EVENT_COLUMNS) for e in events]
         with self.lock, self.db:
             self.db.executemany(
-                "INSERT INTO events(ts,ip,type,sev,src,port,detail,jail) VALUES (?,?,?,?,?,?,?,?)", rows)
+                f"INSERT INTO events({','.join(EVENT_COLUMNS)}) VALUES ({','.join('?' * len(EVENT_COLUMNS))})", rows)
+
+    def events_after(self, last_id, limit=5000):
+        """Für den Export eines Außensensors: (id, Event-Dict) aufsteigend nach id."""
+        rows = self.query(f"SELECT id, {','.join(EVENT_COLUMNS)} FROM events WHERE id>? ORDER BY id LIMIT ?",
+                          (last_id, limit))
+        return [(r[0], dict(zip(EVENT_COLUMNS, r[1:]))) for r in rows]
 
     # --- Offsets der Logdateien (Fortsetzen nach Neustart ohne Duplikate) ---
     def get_offset(self, path):

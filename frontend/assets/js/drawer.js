@@ -1,7 +1,7 @@
 // Seitliche Schublade: Vorgänge zu einem Top-Listen-Eintrag, Event mit IP-Profil, Länderansicht.
 // Jede Ansicht ist ein Eintrag im Verlauf, "Zurück" springt zur vorigen.
 import { typeInfo, num, flag, time, dateTime, esc, service, SEVERITY } from "./format.js";
-import { feedItem } from "./panels.js";
+import { feedItem, sensorName } from "./panels.js";
 
 const $ = id => document.getElementById(id);
 const getJson = url => fetch(url, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
@@ -62,7 +62,7 @@ export async function openEvent(ev) {
   const t = typeInfo(ev.type);
   if (ev.lat != null) ctx.focus?.(ev.lat, ev.lon);
   show(view, `<span style="color:${t.color}">${esc(t.label)}</span> · ${time(ev.ts)}`, dl([
-    ["Zeit", dateTime(ev.ts)], ["Art", `${esc(t.label)} · ${SEVERITY[ev.sev] || esc(ev.sev)}`], ["Quelle", esc(ev.src)],
+    ["Zeit", dateTime(ev.ts)], ["Art", `${esc(t.label)} · ${SEVERITY[ev.sev] || esc(ev.sev)}`], ["Quelle", esc(ev.src)], ["Sensor", esc(sensorName(ev.sensor))],
     ["Port", ev.port ? `${ev.port} ${service(ev.port)}` : null], ["Jail", esc(ev.jail)], ["Detail", esc(ev.detail)],
   ]) + '<h3>Absender</h3><div id="ip-profile"><p class="empty">Lade IP-Profil …</p></div>');
   try {

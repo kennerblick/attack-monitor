@@ -70,6 +70,23 @@ lauschen nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nehmen je höchstens 50
 Verbindungen an und speichern höchstens 30 Events pro IP und Minute. Ist ein Port belegt, versuchen
 sie es jede Minute erneut.
 
+## Außensensoren
+
+Zusätzlich laufen dieselben Honeypots auf **oci-worker** (Oracle Cloud Frankfurt, 150.230.152.179, seit 2026-11-09),
+dazu nginx auf 80/443 (Standardseite, `.php` an den PHP-Honeypot, Web-Probes aus dem eigenen access.log).
+`backend/sensor.py` schreibt in eine lokale DB; 3lis.de holt die Events jede Minute per SSH ab (`backend/sensors.py`)
+und speichert sie mit dem Sensor-Namen (`events.sensor`, leer = 3lis.de). Pull statt Push: Der Sensor hat keinen
+Zugang zu 3lis.de, und der Schlüssel von 3lis.de darf auf dem Sensor nur `export.py` ausführen (`restrict`).
+Auf dem Globus enden die Bögen am getroffenen Sensor; Liste „Sensoren“ mit Drilldown.
+
+Sensor einrichten/aktualisieren (echtes sshd vorher auf 22022 umziehen, Ports in der Cloud-Firewall öffnen):
+```bash
+git archive HEAD | ssh <sensor> 'rm -rf /tmp/am && mkdir /tmp/am && tar -x -C /tmp/am'
+ssh <sensor> "sudo /tmp/am/deploy/sensor/deploy-sensor.sh '$(sudo cat /etc/attack-monitor/sensor_key.pub)'"
+```
+Auf 3lis.de `/etc/attack-monitor/sensors.json` (Name, SSH-Ziel, Port, Standort, Beschriftung), dann `systemctl restart attack-monitor`:
+`[{"name": "oci", "ssh": "attack-export@150.230.152.179", "port": 22022, "lat": 50.11, "lon": 8.68, "label": "Oracle FRA"}]`
+
 Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.
 Danach setzt es an gespeicherten Offsets fort.
@@ -98,6 +115,8 @@ einmalig die alten gemischten `access.log*` nach, bis zum Beginn des eigenen Log
 | `ATTACK_DB` | `/var/lib/attack-monitor/events.db` | SQLite-Datei |
 | `ATTACK_PORT` | `8099` | API-Port (nur 127.0.0.1) |
 | `ATTACK_SSH_KEY` | `/var/lib/attack-monitor/ssh_host_rsa_key` | Host-Key des SSH-Honeypots (wird beim ersten Start erzeugt) |
+| `ATTACK_SENSORS` | `/etc/attack-monitor/sensors.json` | Außensensoren (fehlt die Datei: keine) |
+| `ATTACK_SENSOR_KEY` | `/etc/attack-monitor/sensor_key` | SSH-Schlüssel zum Abholen (legt `deploy.sh` an) |
 
 nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled/default`).
 
