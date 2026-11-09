@@ -112,12 +112,15 @@ def make_handler(store, server_location, counter, sensor_list=()):
                 elif url.path == "/api/stats":
                     key = q.get("range", ["24h"])[0]
                     key = key if key in stats.RANGES else "24h"  # begrenzt auch die Cache-Schlüssel
-                    body = cached(f"stats-{key}", 10, lambda: stats.compute(store, key))
+                    sensor = q.get("sensor", [None])[0]
+                    if sensor is not None and sensor != "3lis" and sensor not in {s["name"] for s in sensor_list}:
+                        raise ValueError(sensor)
+                    body = cached(f"stats-{key}-{sensor}", 10, lambda: stats.compute(store, key, sensor))
                 elif url.path == "/api/visits":
                     body = cached("visits", 60, counter.summary)
                 elif url.path == "/api/status":
                     bans = {j: len(ips) for j, ips in cached("banned", 30, f2b_banned).items()}
-                    body = {"server": server_location, "sensors": sensor_list, "bans": bans, "bansTotal": sum(bans.values()),
+                    body = {"server": server_location, "sensors": sensors.public(sensor_list), "bans": bans, "bansTotal": sum(bans.values()),
                             "blocklist": cached("blocklist", 300, blocklist_size), "ts": time.time()}
                 else:
                     return self.send_error(404)
@@ -146,5 +149,4 @@ if __name__ == "__main__":
     if remote:
         threading.Thread(target=sensors.worker, args=(store, remote), daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
-    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter,
-                                             sensors.public(remote))).serve_forever()
+    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter, remote)).serve_forever()

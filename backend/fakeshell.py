@@ -1,5 +1,6 @@
 """Fake-Shell für Telnet- und SSH-Honeypot: plausibel genug, dass Bots ihre Befehlskette weiter
-abarbeiten. Nichts wird ausgeführt oder heruntergeladen; die Antworten kommen aus festen Tabellen.
+abarbeiten. Nichts wird ausgeführt; die Antworten kommen aus festen Tabellen. downloads() und Drops liefern
+nur, was der Honeypot als Malware-Sample sichert (samples.py lädt, honeypot.py speichert).
 """
 import re
 
@@ -33,6 +34,16 @@ def _echo(words):
         return text
 
 
+def _redirect(words):
+    """echo … > datei bzw. >> datei: (Wörter ohne Umleitung, Datei, anhängen?) oder None."""
+    for i, w in enumerate(words):
+        if w.startswith(">"):
+            append = w.startswith(">>")
+            name = w.lstrip(">") or (words[i + 1] if i + 1 < len(words) else "")
+            return words[:i], name, append
+    return None
+
+
 def _one(words):
     if words[0].rsplit("/", 1)[-1] == "busybox" and len(words) > 1:
         words = words[1:]
@@ -43,7 +54,7 @@ def _one(words):
     if cmd in OUTPUT:
         return OUTPUT[cmd] + "\r\n" if OUTPUT[cmd] else ""
     if name == "echo":
-        return _echo(words[1:]) + "\r\n"
+        return "" if _redirect(words) else _echo(words[1:]) + "\r\n"
     if name == "cat":
         return "".join(FILES[f] + "\r\n" if f in FILES else f"cat: {f}: No such file or directory\r\n"
                        for f in words[1:])
@@ -52,6 +63,52 @@ def _one(words):
     if name in SILENT:
         return ""
     return f"sh: {name}: not found\r\n"
+
+
+def _parts(line):
+    for part in re.split(r";|&&|\|\||\|", line):
+        words = part.split()
+        if words and words[0].rsplit("/", 1)[-1] == "busybox":
+            words = words[1:]
+        if words:
+            yield words
+
+
+def downloads(line):
+    """URLs, die wget/curl/tftp in der Zeile laden würden (nur http, https, tftp)."""
+    urls = []
+    for words in _parts(line):
+        name, args = words[0].rsplit("/", 1)[-1], [w.strip("'\"") for w in words[1:]]
+        if name in ("wget", "curl"):
+            skip = {"-O", "-o", "--output", "--output-document", "-P", "-U", "--user-agent", "-H"}
+            urls += [a if "://" in a else "http://" + a for i, a in enumerate(args)
+                     if not a.startswith("-") and (i == 0 or args[i - 1] not in skip) and ("/" in a or "." in a)]
+        elif name == "tftp":
+            # BusyBox: tftp -g -r datei host [port]; klassisch: tftp host -c get datei
+            plain = [a for i, a in enumerate(args) if not a.startswith("-") and (i == 0 or args[i - 1] not in ("-r", "-l"))]
+            remote = args[args.index("-r") + 1] if "-r" in args[:-1] else (args[-1] if "get" in args else None)
+            host = next((a for a in plain if a not in ("get", remote)), None)
+            if host and remote:
+                urls.append(f"tftp://{host}/{remote}")
+    return [u for u in urls if u.split("://", 1)[0] in ("http", "https", "tftp")]
+
+
+class Drops:
+    """Dateien, die ein Bot per echo -ne '\\x7f\\x45…' > datei Stück für Stück schreibt (Dropper ohne Download)."""
+
+    def __init__(self):
+        self.files = {}
+
+    def feed(self, line):
+        for words in _parts(line):
+            target = _redirect(words) if words[0].rsplit("/", 1)[-1] == "echo" else None
+            if target is None:
+                continue
+            args, name, append = target
+            data = _echo(args[1:]).encode("latin-1", "replace")
+            self.files[name] = (self.files.get(name, b"") if append else b"") + data
+            if sum(map(len, self.files.values())) > 1024 * 1024:  # mehr schreibt kein echo-Dropper
+                self.files.clear()
 
 
 def respond(line):

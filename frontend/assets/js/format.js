@@ -14,6 +14,7 @@ export const TYPES = [
   { key: "Telnet-Probe", label: "Telnet-Honeypot", color: "#8aa0b8" },
   { key: "Postgres-Probe", label: "Postgres-Honeypot", color: "#4fb3bf" },
   { key: "PHP-Probe", label: "PHP-Honeypot", color: "#b86fd6" },
+  { key: "Malware-Sample", label: "Malware-Sample", color: "#f2e85c" },
 ];
 const BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
 export const typeInfo = key => BY_KEY[key] || { key, label: key, color: "#6b7894" };

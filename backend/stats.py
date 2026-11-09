@@ -1,7 +1,8 @@
 """Aggregierte Kennzahlen für ein Zeitfenster (1h / 24h / 7d)."""
+import re
 import time
 
-from store import COMMAND, COMMANDS, LOGIN_PW, LOGIN_USER, LOGINS, PASSWORDS, SENSOR
+from store import COMMAND, COMMANDS, LOCAL_SENSOR, LOGIN_PW, LOGIN_USER, LOGINS, PASSWORDS, SAMPLE_HASH, SAMPLES, SENSOR
 
 # Fenster -> (Sekunden, Bucket-Größe der Zeitleiste)
 RANGES = {"1h": (3600, 60), "24h": (86400, 1800), "7d": (7 * 86400, 3 * 3600)}
@@ -11,7 +12,26 @@ def _top(store, sql, since, limit=10):
     return store.query(sql + " ORDER BY n DESC LIMIT ?", (since, limit))
 
 
-def compute(store, range_key):
+class _Scoped:
+    """Alle Abfragen auf einen Sensor beschränken, ohne jede SQL-Zeile anzufassen. Der Name ist geprüft
+    (SENSOR_NAME), nur deshalb darf er als Literal ins SQL."""
+
+    def __init__(self, store, sensor):
+        self.store = store
+        self.table = f"FROM (SELECT * FROM events WHERE COALESCE(sensor,'{LOCAL_SENSOR}')='{sensor}')"
+
+    def query(self, sql, args=()):
+        return self.store.query(sql.replace("FROM events", self.table), args)
+
+
+SENSOR_NAME = re.compile(r"[a-z0-9_-]{1,32}")
+
+
+def compute(store, range_key, sensor=None):
+    """sensor=None: alle Sensoren; sonst nur Events dieses Sensors (nicht in "sensors", die Karten zeigen immer alle)."""
+    if sensor is not None and not SENSOR_NAME.fullmatch(sensor):
+        raise ValueError(sensor)
+    all_sensors, store = store, (store if sensor is None else _Scoped(store, sensor))
     span, bucket = RANGES.get(range_key, RANGES["24h"])
     now = time.time()
     since = now - span
@@ -54,8 +74,10 @@ def compute(store, range_key):
         "pathsTop": [{"path": d.split(" → ")[0], "n": n} for d, n in _top(
             store, "SELECT detail, COUNT(*) n FROM events WHERE ts>=? AND type IN ('Web-Probe','SQLi/RCE') "
                    "GROUP BY substr(detail, 1, instr(detail, ' → '))", since, 8)],
-        "sensorsTop": [{"sensor": x, "n": n} for x, n in _top(
-            store, f"SELECT {SENSOR} x, COUNT(*) n FROM events e WHERE e.ts>=? GROUP BY x", since)],
+        "sensors": [{"sensor": x, "n": n, "ips": ips, "last": last} for x, n, ips, last in _top(
+            all_sensors, f"SELECT {SENSOR} x, COUNT(*) n, COUNT(DISTINCT e.ip), MAX(e.ts) FROM events e WHERE e.ts>=? "
+                         "GROUP BY x", since)],
+        "samplesTop": samples_top(store, since),
         "jailsTop": [{"jail": j, "n": n} for j, n in _top(
             store, "SELECT jail, COUNT(*) n FROM events WHERE ts>=? AND jail IS NOT NULL GROUP BY jail", since)],
         # Herkunftsorte auf ~1°-Raster gebündelt, für die Säulen auf dem Globus
@@ -67,6 +89,18 @@ def compute(store, range_key):
         "timeline": {"bucket": bucket, "buckets": buckets},
         "heatmap": heatmap(store, now),
     }
+
+
+def samples_top(store, since, limit=8):
+    """Je Hash: Anzahl, Quell-IPs, zuletzt, Größe/Art/Quelle aus dem jüngsten Detail (siehe Honeypot.sample)."""
+    # SQLite: die nackte Spalte detail stammt aus der Zeile mit MAX(ts), also dem jüngsten Fund
+    rows = store.query(f"SELECT {SAMPLE_HASH} h, COUNT(*) n, COUNT(DISTINCT ip), MAX(ts), detail FROM events "
+                       f"WHERE ts>=? AND {SAMPLES} GROUP BY h ORDER BY n DESC, MAX(ts) DESC LIMIT ?", (since, limit))
+    out = []
+    for digest, n, ips, last, detail in rows:
+        size, kind, source = (detail.split(" · ") + ["", "", ""])[1:4]
+        out.append({"hash": digest, "n": n, "ips": ips, "last": last, "size": size, "kind": kind, "source": source})
+    return out
 
 
 def by_country(store, join, since):

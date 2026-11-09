@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3lis.de · Live Threat Monitor</title>
-<meta name="description" content="Echtzeit-Lagebild aller Angriffe auf den Server 3lis.de: Herkunft, Angriffsarten, Ports, Netze.">
+<meta name="description" content="Echtzeit-Lagebild aller Angriffe auf 3lis.de und seine Außensensoren: Herkunft, Angriffsarten, Ports, Netze, Malware.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%233987e5'/><circle cx='16' cy='16' r='5' fill='%23060a14'/></svg>">
 <link rel="stylesheet" href="/assets/css/base.css">
 <link rel="stylesheet" href="/assets/css/monitor.css">
@@ -26,7 +26,7 @@
   <section class="hero">
     <div>
       <h1>Das Internet klopft an. <span>Live.</span></h1>
-      <p>Jeder Port-Scan, jeder Login-Versuch, jede Schwachstellen-Suche gegen diesen Server, in Echtzeit aus den Logs von portsentry, sshd, nginx und fail2ban.</p>
+      <p>Jeder Port-Scan, jeder Login-Versuch, jede Schwachstellen-Suche, in Echtzeit von mehreren Sensoren: dem Server 3lis.de (portsentry, sshd, nginx, fail2ban, Honeypots) und Außensensoren mit eigenen Honeypots in fremden Netzen.</p>
     </div>
   </section>
 
@@ -39,6 +39,11 @@
     <div class="kpi"><label>Sperrliste</label><strong id="k-block">–</strong><small>dauerhaft geblockte IPs</small></div>
   </section>
 
+  <section class="sensors-strip" aria-label="Sensoren">
+    <h2>Sensoren <em>Klick = nur diesen Sensor anzeigen</em><em id="scope"></em></h2>
+    <div class="sensor-cards" id="sensor-cards"></div>
+  </section>
+
   <section class="main">
     <div class="stack">
       <div class="panel"><h2>Angriffsarten <em>Klick = Vorgänge</em></h2><ul class="bars" id="types"></ul></div>
@@ -48,7 +53,7 @@
 
     <div class="panel globe-panel">
       <div id="globe" aria-label="3D-Globus mit Angriffsherkunft"></div>
-      <div class="globe-title">ANGRIFFSHERKUNFT → 3LIS.DE<span id="server-loc"></span><span>Farbe: Angriffe je Land · Säulen: Herde · Bögen: jüngste Angriffe</span><span>Hover = Details · Klick = Land/Angriff · Ziehen/Scrollen = drehen/zoomen</span></div>
+      <div class="globe-title">ANGRIFFSHERKUNFT → SENSOREN<span id="server-loc"></span><span>Farbe: Angriffe je Land · Säulen: Herde · Bögen: jüngste Angriffe · ◉ Sensor-Standorte</span><span>Hover = Details · Klick = Land/Angriff · Ziehen/Scrollen = drehen/zoomen</span></div>
       <div class="globe-tools" role="toolbar" aria-label="Globus-Ansicht">
         <button data-globe="rotate" aria-pressed="true" title="Automatische Drehung">⟳ Drehen</button>
         <button data-globe="shade" aria-pressed="true" title="Länder nach Angriffen färben">◐ Länder</button>
@@ -79,7 +84,7 @@
     <div class="panel"><h2>Passwörter <small>SSH · FTP · Telnet · Postgres</small></h2><ul class="bars mono" id="passwords"></ul></div>
     <div class="panel"><h2>Befehle <small>SSH · Telnet · SQL</small></h2><ul class="bars mono" id="commands"></ul></div>
     <div class="panel"><h2>Gesuchte Pfade</h2><ul class="bars mono" id="paths"></ul></div>
-    <div class="panel"><h2>Sensoren <small>wo der Angriff einschlug</small></h2><ul class="bars mono" id="sensors"></ul>
+    <div class="panel"><h2>Malware-Samples <small>Uploads &amp; Downloads der Bots</small></h2><ul class="bars mono" id="samples"></ul>
       <h2 class="sub">fail2ban-Jails <small>nur 3lis.de</small></h2><ul class="bars mono" id="jails"></ul></div>
   </section>
 </main>
@@ -87,7 +92,7 @@
 <div class="tip" id="tip"></div>
 
 <footer class="footer">
-  <span>Quellen: portsentry · sshd · nginx · fail2ban · Honeypots (SSH, FTP, Telnet, MySQL, Postgres). IP-Adressen werden gekürzt angezeigt (letztes Oktett = x). Geodaten: ip-api.com.</span>
+  <span>Quellen: portsentry · sshd · nginx · fail2ban · Honeypots (SSH, FTP, Telnet, MySQL, Postgres, PHP) auf 3lis.de und den Außensensoren. Malware-Samples werden nur per Hash gezeigt, nie ausgeliefert. IP-Adressen werden gekürzt angezeigt (letztes Oktett = x). Geodaten: ip-api.com.</span>
   <span><a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a></span>
 </footer>
 

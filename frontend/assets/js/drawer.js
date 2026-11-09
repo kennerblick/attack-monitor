@@ -1,7 +1,8 @@
 // Seitliche Schublade: Vorgänge zu einem Top-Listen-Eintrag, Event mit IP-Profil, Länderansicht.
 // Jede Ansicht ist ein Eintrag im Verlauf, "Zurück" springt zur vorigen.
 import { typeInfo, num, flag, time, dateTime, esc, service, SEVERITY } from "./format.js";
-import { feedItem, sensorName } from "./panels.js";
+import { feedItem } from "./panels.js";
+import { sensorBadge } from "./sensors.js";
 
 const $ = id => document.getElementById(id);
 const getJson = url => fetch(url, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
@@ -57,13 +58,20 @@ export async function openList(kind, value, label) {
   }
 }
 
+// Nur der Hash geht an VirusTotal; die Datei selbst liegt nie öffentlich (samples.py)
+function sampleLink(detail) {
+  const hash = /^Sample „([0-9a-f]{64})“/.exec(detail || "")?.[1];
+  return hash && `<a href="https://www.virustotal.com/gui/file/${hash}" target="_blank" rel="noopener noreferrer">VirusTotal ↗</a>`;
+}
+
 export async function openEvent(ev) {
   const view = () => openEvent(ev);
   const t = typeInfo(ev.type);
   if (ev.lat != null) ctx.focus?.(ev.lat, ev.lon);
   show(view, `<span style="color:${t.color}">${esc(t.label)}</span> · ${time(ev.ts)}`, dl([
-    ["Zeit", dateTime(ev.ts)], ["Art", `${esc(t.label)} · ${SEVERITY[ev.sev] || esc(ev.sev)}`], ["Quelle", esc(ev.src)], ["Sensor", esc(sensorName(ev.sensor))],
+    ["Zeit", dateTime(ev.ts)], ["Art", `${esc(t.label)} · ${SEVERITY[ev.sev] || esc(ev.sev)}`], ["Quelle", esc(ev.src)], ["Sensor", sensorBadge(ev.sensor)],
     ["Port", ev.port ? `${ev.port} ${service(ev.port)}` : null], ["Jail", esc(ev.jail)], ["Detail", esc(ev.detail)],
+    ["Analyse", sampleLink(ev.detail)],
   ]) + '<h3>Absender</h3><div id="ip-profile"><p class="empty">Lade IP-Profil …</p></div>');
   try {
     const p = await getJson(`/api/ip?id=${ev.id}`);

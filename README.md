@@ -70,6 +70,16 @@ lauschen nur auf IPv4 (die /24-Kürzung kennt nur IPv4), nehmen je höchstens 50
 Verbindungen an und speichern höchstens 30 Events pro IP und Minute. Ist ein Port belegt, versuchen
 sie es jede Minute erneut.
 
+### Malware-Samples
+
+SSH- und Telnet-Honeypot sichern, was Bots nachladen wollen (`backend/samples.py`, Event `Malware-Sample`):
+- Downloads aus der Fake-Shell (`wget`/`curl` http(s), `tftp`) lädt der Honeypot selbst nach: nur öffentliche
+  IPv4-Ziele (kein Sprungbrett ins Homelab, DNS-Rebinding abgefangen), max. 10 MB, 60 Downloads/h, je URL 1×/h.
+- Uploads per `scp -t`, per `cat > datei` (Datei auf stdin) und per `echo -ne '\x7f…' > datei` (Dropper, gesichert bei Sitzungsende).
+- Ablage unter `/var/lib/attack-monitor/samples/<sha256>` (0400, max. 2 GB), nie ausgeführt, nie ausgeliefert, nicht ins Backup.
+  Die Seite zeigt nur Hash, Art (ELF-Architektur, Skript, EXE), Größe und Quelle, mit Link auf VirusTotal (nur der Hash).
+- Nicht abgedeckt: FTP (lehnt Logins weiter ab), sftp, `ftpget`.
+
 ## Außensensoren
 
 Zusätzlich laufen dieselben Honeypots auf **oci-worker** (Oracle Cloud Frankfurt, 150.230.152.179, seit 2026-11-09),
@@ -77,15 +87,18 @@ dazu nginx auf 80/443 (Standardseite, `.php` an den PHP-Honeypot, Web-Probes aus
 `backend/sensor.py` schreibt in eine lokale DB; 3lis.de holt die Events jede Minute per SSH ab (`backend/sensors.py`)
 und speichert sie mit dem Sensor-Namen (`events.sensor`, leer = 3lis.de). Pull statt Push: Der Sensor hat keinen
 Zugang zu 3lis.de, und der Schlüssel von 3lis.de darf auf dem Sensor nur `export.py` ausführen (`restrict`).
-Auf dem Globus enden die Bögen am getroffenen Sensor; Liste „Sensoren“ mit Drilldown.
+Auf der Seite hat jeder Sensor eine feste Farbe (Karte, Feed-Plakette, Globus-Standort, Einschlag-Ring). Die Sensor-Karten
+unter den Kennzahlen zeigen Angriffe, IPs, letzten Angriff und den Abrufzustand; ein Klick beschränkt Statistik, Feed und
+Globus auf diesen Sensor (`/api/stats?sensor=`). Samples liegen auf dem Sensor, nach 3lis.de kommt nur das Event.
 
 Sensor einrichten/aktualisieren (echtes sshd vorher auf 22022 umziehen, Ports in der Cloud-Firewall öffnen):
 ```bash
 git archive HEAD | ssh <sensor> 'rm -rf /tmp/am && mkdir /tmp/am && tar -x -C /tmp/am'
 ssh <sensor> "sudo /tmp/am/deploy/sensor/deploy-sensor.sh '$(sudo cat /etc/attack-monitor/sensor_key.pub)'"
 ```
-Auf 3lis.de `/etc/attack-monitor/sensors.json` (Name, SSH-Ziel, Port, Standort, Beschriftung), dann `systemctl restart attack-monitor`:
-`[{"name": "oci", "ssh": "attack-export@150.230.152.179", "port": 22022, "lat": 50.11, "lon": 8.68, "label": "Oracle FRA"}]`
+Auf 3lis.de `/etc/attack-monitor/sensors.json` (Name, SSH-Ziel, Port, Standort, Beschriftung, optional Ortsangabe `where`),
+dann `systemctl restart attack-monitor`:
+`[{"name": "oci", "ssh": "attack-export@150.230.152.179", "port": 22022, "lat": 50.11, "lon": 8.68, "label": "Oracle FRA", "where": "Frankfurt · Oracle Cloud"}]`
 
 Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.

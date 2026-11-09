@@ -39,6 +39,9 @@ LOGIN_PW = "substr(detail, instr(detail, '· Passwort „') + 12, length(detail)
 # Fake-Shell von SSH-/Telnet-Honeypot, SQL der Datenbank-Honeypots und PHP-Payloads: Detail "Befehl „…“" (Honeypot.command); 8 = len('Befehl „')
 COMMANDS = "type IN ('SSH-Probe','Telnet-Probe','MySQL-Probe','Postgres-Probe','PHP-Probe') AND detail LIKE 'Befehl „%'"
 COMMAND = "substr(detail, 9, length(detail) - 9)"
+# Malware-Samples (Honeypot.sample): Detail "Sample „sha256“ · Größe · Art · Quelle"
+SAMPLES = "type='Malware-Sample'"
+SAMPLE_HASH = "substr(detail, 9, 64)"  # 8 = len('Sample „')
 
 # Drilldown aus den Top-Listen: Art -> WHERE-Bedingung (Werte immer als Parameter)
 FILTERS = {
@@ -50,6 +53,7 @@ FILTERS = {
     "command": f"{COMMANDS} AND {COMMAND}=?",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
     "sensor": f"{SENSOR}=?",
+    "sample": "e.type='Malware-Sample' AND e.detail LIKE 'Sample „' || ? || '“%'",
 }
 
 

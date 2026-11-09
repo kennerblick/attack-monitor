@@ -1,5 +1,6 @@
 """Gemeinsame Basis der Honeypots (MySQL, Postgres, SSH, FTP, Telnet): Port belegen, Verbindungen begrenzen,
-Login-Versuche und Befehle als Event speichern. Ausgeführt wird nie etwas (Telnet/SSH: fakeshell.py, MySQL/Postgres: feste Antworten).
+Login-Versuche, Befehle und Malware-Samples als Event speichern. Ausgeführt wird nie etwas (Telnet/SSH: fakeshell.py,
+MySQL/Postgres: feste Antworten); Downloads und hochgeladene Dateien landen nur als Datei in samples.py.
 
 Nur IPv4, weil die API-Kürzung (/24) nur IPv4 kennt.
 """
@@ -7,12 +8,15 @@ import socket
 import threading
 import time
 
+import fakeshell
+import samples
 from parsers import event
 
 TIMEOUT = 5
 MAX_CONN = 50
 PER_IP_PER_MIN = 30  # Flut einer einzelnen IP nicht vollständig speichern
 NO_LOGIN = "Verbindung ohne Login (Server-Erkennung)"
+SAMPLE_TYPE = "Malware-Sample"
 
 
 def clean(value, limit=40):
@@ -53,6 +57,35 @@ class Honeypot:
     def command(self, ip, line):
         """Befehl aus der Fake-Shell; store.py liest ihn aus dem Detail."""
         self.record(ip, "crit", f"Befehl „{clean(line, 100)}“")
+
+    def sample(self, ip, data, source):
+        """Datei eines Angreifers ablegen (samples.py). Das Event umgeht die Flutbremse: Samples sind selten,
+        aber genau das, was wir sammeln wollen. store.py liest den Hash aus dem Detail."""
+        digest, stored = samples.save(data)
+        detail = (f"Sample „{digest}“ · {len(data)} B · {samples.kind(data)} · {clean(source, 100)}"
+                  + ("" if stored else " · nicht gespeichert (Speicher voll)"))
+        self.store.add_events([event(time.time(), ip, SAMPLE_TYPE, "crit", "honeypot", self.PORT, detail)])
+
+    def fetch(self, ip, url):
+        """Download, den ein Bot in der Fake-Shell anstößt, selbst ausführen (gedrosselt, nur öffentliche Ziele)."""
+        samples.fetch(url, lambda data: self.sample(ip, data, url))
+
+    def shell(self, ip, run):
+        """Fake-Shell-Sitzung beobachten: run(on_line) läuft die Sitzung; jede Zeile wird protokolliert, angestoßene
+        Downloads geladen, per echo geschriebene Programme am Ende (auch nach Abbruch) als Sample gesichert."""
+        drops = fakeshell.Drops()
+
+        def on_line(line):
+            self.command(ip, line)
+            for url in fakeshell.downloads(line):
+                self.fetch(ip, url)
+            drops.feed(line)
+        try:
+            run(on_line)
+        finally:
+            for name, data in drops.files.items():
+                if samples.looks_executable(data):
+                    self.sample(ip, data, f"echo > {name}")
 
     def session(self, sock, ip):
         logins = 0
