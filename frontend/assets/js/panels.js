@@ -1,6 +1,6 @@
 // Kennzahlen, Top-Listen, Live-Feed und Toast (Detailansichten: drawer.js).
 import { TYPES, typeInfo, num, flag, time, esc, service } from "./format.js";
-import { sensorBadge, multiSensor } from "./sensors.js";
+import { sensorBadge, sensorSites, multiSensor } from "./sensors.js";
 
 const $ = id => document.getElementById(id);
 
@@ -29,7 +29,7 @@ export function renderKpis(stats, status) {
     const top = Object.entries(status.bans).filter(([, n]) => n).map(([j, n]) => `${j} ${n}`).join(" · ");
     $("k-bans-sub").textContent = top || "fail2ban";
     $("k-block").textContent = num(status.blocklist);
-    $("server-loc").textContent = `Ziele: 3lis.de (${status.server.name})${(status.sensors || []).map(s => ` · ${s.label}`).join("")}`;
+    $("server-loc").innerHTML = "Sensoren: " + sensorSites().map(s => sensorBadge(s.name)).join("");
   }
 }
 

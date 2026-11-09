@@ -88,13 +88,12 @@ export async function createGlobe(el, sites, { onCountry, onEvent } = {}) {
     .ringColor(d => t => `${d.color}${Math.round((1 - t) * 255).toString(16).padStart(2, "0")}`)
     .ringMaxRadius(d => d.r).ringPropagationSpeed(2.4).ringRepeatPeriod(900)
     // Abwechselnd über/unter dem Punkt, sonst verdecken sich nahe Standorte (Berlin/Frankfurt)
-    .htmlElementsData(sites.map((s, i) => ({ lat: s.lat, lng: s.lon, label: s.label, color: s.color, name: s.name, below: i % 2 })))
+    .htmlElementsData(sites.map((s, i) => ({ lat: s.lat, lng: s.lon, label: s.label, color: s.color, below: i % 2 })))
     .htmlElement(d => {
       const tag = document.createElement("div");
       tag.className = d.below ? "site-tag below" : "site-tag";
       tag.style.setProperty("--s", d.color);
       tag.textContent = `◉ ${d.label.toUpperCase()}`;
-      d.el = tag;
       return tag;
     });
 
@@ -114,10 +113,8 @@ export async function createGlobe(el, sites, { onCountry, onEvent } = {}) {
   fit();
 
   let arcs = [];
-  const siteRings = sites.map(s => ({ lat: s.lat, lng: s.lon, color: s.color, r: 4.5, perm: true, name: s.name }));
-  let rings = [...siteRings];
+  let rings = sites.map(s => ({ lat: s.lat, lng: s.lon, color: s.color, r: 4.5, perm: true }));
   let active = null; // Set der sichtbaren Typen, null = alle
-  let sensor = null; // gewählter Sensor, null = alle
 
   function prune() {
     const now = performance.now();
@@ -145,15 +142,6 @@ export async function createGlobe(el, sites, { onCountry, onEvent } = {}) {
       world.hexPolygonColor(dotColor).pointsData(layers.points ? spots : []);
     },
     setFilter(types) { active = types; },
-    // Sensor wählen: andere Standorte abblenden, nur noch dessen Bögen; Ansicht schwenkt zum Standort
-    setSensor(name) {
-      sensor = name;
-      arcs = arcs.filter(a => !name || (a.ev.sensor || "3lis") === name);
-      rings = rings.filter(r => !r.perm).concat(siteRings.filter(r => !name || r.name === name));
-      world.htmlElementsData().forEach(d => d.el?.classList.toggle("dim", !!name && d.name !== name));
-      prune();
-      this.resetView();
-    },
     toggleLayer(key) {
       layers[key] = !layers[key];
       world.hexPolygonColor(dotColor).pointsData(layers.points ? spots : []);
@@ -167,11 +155,10 @@ export async function createGlobe(el, sites, { onCountry, onEvent } = {}) {
       return rotating;
     },
     resetView() {
-      const s = sites.find(x => x.name === sensor) || server;
-      world.pointOfView({ lat: s.lat, lng: s.lon, altitude: 2.3 }, 1000);
+      world.pointOfView({ lat: server.lat, lng: server.lon, altitude: 2.3 }, 1000);
     },
     addAttack(ev) {
-      if (ev.lat == null || (active && !active.has(ev.type)) || (sensor && (ev.sensor || "3lis") !== sensor)) return;
+      if (ev.lat == null || (active && !active.has(ev.type))) return;
       const c = typeInfo(ev.type).color;
       const born = performance.now();
       const to = target(ev);

@@ -112,10 +112,7 @@ def make_handler(store, server_location, counter, sensor_list=()):
                 elif url.path == "/api/stats":
                     key = q.get("range", ["24h"])[0]
                     key = key if key in stats.RANGES else "24h"  # begrenzt auch die Cache-Schlüssel
-                    sensor = q.get("sensor", [None])[0]
-                    if sensor is not None and sensor != "3lis" and sensor not in {s["name"] for s in sensor_list}:
-                        raise ValueError(sensor)
-                    body = cached(f"stats-{key}-{sensor}", 10, lambda: stats.compute(store, key, sensor))
+                    body = cached(f"stats-{key}", 10, lambda: stats.compute(store, key))
                 elif url.path == "/api/visits":
                     body = cached("visits", 60, counter.summary)
                 elif url.path == "/api/status":

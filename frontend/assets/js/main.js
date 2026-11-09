@@ -1,32 +1,18 @@
 // Steuerung: holt Feed (2 s), Statistik (15 s) und Status (30 s) und verteilt sie auf Globus und Panels.
 import { createGlobe } from "./globe.js";
 import { renderKpis, renderTypes, renderLists, renderFeed, toast } from "./panels.js";
-import { LOCAL, setSensors, sensorSites, sensorName, renderSensorCards } from "./sensors.js";
+import { LOCAL, setSensors, sensorSites } from "./sensors.js";
 import { initDrawer, setRange, openList, openEvent, openCountry } from "./drawer.js";
 import { renderTimeline, renderHeatmap } from "./charts.js";
 
-const state = { range: "24h", active: null, sensor: null, events: [], lastId: 0, stats: null, status: null, lastOk: 0, lastFresh: 0 };
+const state = { range: "24h", active: null, events: [], lastId: 0, stats: null, status: null, lastOk: 0, lastFresh: 0 };
 const REPLAY_AFTER = 6000; // ms ohne neuen Angriff, ab dann werden die letzten echten wiederholt
 let globe = null;
 
 const getJson = url => fetch(url, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 
 function visible() {
-  return state.events.filter(e => (!state.active || state.active.has(e.type)) &&
-    (!state.sensor || (e.sensor || LOCAL) === state.sensor));
-}
-
-function selectSensor(name) {
-  state.sensor = name;
-  globe?.setSensor(name);
-  document.getElementById("scope").textContent = name ? `Ansicht: nur ${sensorName(name)}` : "";
-  redrawFeed();
-  pollStats();
-}
-
-function drawSensors() {
-  renderSensorCards(document.getElementById("sensor-cards"), state.stats?.sensors, state.sensor, selectSensor,
-    name => openList("sensor", name, `Sensor ${sensorName(name)}`));
+  return state.active ? state.events.filter(e => state.active.has(e.type)) : state.events;
 }
 
 function showEvent(ev) {
@@ -49,7 +35,6 @@ function redrawFeed(newIds = new Set()) {
 function redrawStats() {
   if (!state.stats) return;
   renderKpis(state.stats, null);
-  drawSensors();
   renderTypes(state.stats, state.active, toggleType, openList);
   renderLists(state.stats, showCountry, openList);
   renderTimeline(document.getElementById("timeline"), state.stats.timeline, state.active);
@@ -113,19 +98,11 @@ async function refreshGeo() {
 }
 
 async function pollStats() {
-  const scope = state.sensor ? `&sensor=${encodeURIComponent(state.sensor)}` : "";
-  try { state.stats = await getJson(`/api/stats?range=${state.range}${scope}`); redrawStats(); } catch { /* später */ }
+  try { state.stats = await getJson(`/api/stats?range=${state.range}`); redrawStats(); } catch { /* später */ }
 }
 
 async function pollStatus() {
-  try {
-    state.status = await getJson("/api/status");
-    renderKpis(null, state.status);
-    // Abrufzustand der Außensensoren auffrischen (Reihenfolge und damit Farben bleiben gleich)
-    const fresh = Object.fromEntries((state.status.sensors || []).map(s => [s.name, s]));
-    sensorSites().forEach(s => Object.assign(s, fresh[s.name] || {}));
-    drawSensors();
-  } catch { /* später */ }
+  try { state.status = await getJson("/api/status"); renderKpis(null, state.status); } catch { /* später */ }
   return state.status;
 }
 
@@ -151,8 +128,8 @@ addEventListener("resize", () => redrawStats());
   const status = await pollStatus();
   const server = status?.server || { lat: 52.52, lon: 13.4, name: "Berlin" };
   // Ziele der Bögen: 3lis.de selbst und die Außensensoren (Events tragen den Sensor-Namen)
-  setSensors([{ name: LOCAL, lat: server.lat, lon: server.lon, label: "3lis.de", where: `Hauptserver · ${server.name}` }, ...(status?.sensors || [])]);
-  drawSensors();
+  setSensors([{ name: LOCAL, lat: server.lat, lon: server.lon, label: "3lis.de" }, ...(status?.sensors || [])]);
+  if (status) renderKpis(null, status); // Sensor-Namen im Globus-Titel erst jetzt mit Farbe
   try {
     globe = await createGlobe(document.getElementById("globe"), sensorSites(), { onCountry: showCountry, onEvent: showEvent });
     document.querySelectorAll("[data-globe]").forEach(b => b.addEventListener("click", () => {

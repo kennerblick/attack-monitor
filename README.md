@@ -87,18 +87,16 @@ dazu nginx auf 80/443 (Standardseite, `.php` an den PHP-Honeypot, Web-Probes aus
 `backend/sensor.py` schreibt in eine lokale DB; 3lis.de holt die Events jede Minute per SSH ab (`backend/sensors.py`)
 und speichert sie mit dem Sensor-Namen (`events.sensor`, leer = 3lis.de). Pull statt Push: Der Sensor hat keinen
 Zugang zu 3lis.de, und der Schlüssel von 3lis.de darf auf dem Sensor nur `export.py` ausführen (`restrict`).
-Auf der Seite hat jeder Sensor eine feste Farbe (Karte, Feed-Plakette, Globus-Standort, Einschlag-Ring). Die Sensor-Karten
-unter den Kennzahlen zeigen Angriffe, IPs, letzten Angriff und den Abrufzustand; ein Klick beschränkt Statistik, Feed und
-Globus auf diesen Sensor (`/api/stats?sensor=`). Samples liegen auf dem Sensor, nach 3lis.de kommt nur das Event.
+Auf der Seite hat jeder Sensor eine feste Farbe (Plakette in Feed/Toast/Detail, Globus-Standort und -Titel, Einschlag-Ring);
+die Bögen enden am getroffenen Sensor. Samples liegen auf dem Sensor, nach 3lis.de kommt nur das Event.
 
 Sensor einrichten/aktualisieren (echtes sshd vorher auf 22022 umziehen, Ports in der Cloud-Firewall öffnen):
 ```bash
 git archive HEAD | ssh <sensor> 'rm -rf /tmp/am && mkdir /tmp/am && tar -x -C /tmp/am'
 ssh <sensor> "sudo /tmp/am/deploy/sensor/deploy-sensor.sh '$(sudo cat /etc/attack-monitor/sensor_key.pub)'"
 ```
-Auf 3lis.de `/etc/attack-monitor/sensors.json` (Name, SSH-Ziel, Port, Standort, Beschriftung, optional Ortsangabe `where`),
-dann `systemctl restart attack-monitor`:
-`[{"name": "oci", "ssh": "attack-export@150.230.152.179", "port": 22022, "lat": 50.11, "lon": 8.68, "label": "Oracle FRA", "where": "Frankfurt · Oracle Cloud"}]`
+Auf 3lis.de `/etc/attack-monitor/sensors.json` (Name, SSH-Ziel, Port, Standort, Beschriftung), dann `systemctl restart attack-monitor`:
+`[{"name": "oci", "ssh": "attack-export@150.230.152.179", "port": 22022, "lat": 50.11, "lon": 8.68, "label": "Oracle FRA"}]`
 
 Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nach 8 Tagen gelöscht.
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.

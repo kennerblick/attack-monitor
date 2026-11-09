@@ -109,13 +109,6 @@ class StoreStatsTests(unittest.TestCase):
         self.assertIsNone(sensors.ingest(self.store, "oci", lines(0)))  # nichts doppelt
         self.assertEqual(self.store.events_where("sensor", "oci", 0)[0], 1)
         self.assertEqual(self.store.events_where("sensor", "3lis", 0)[0], 3)
-        s = stats.compute(self.store, "1h")
-        self.assertEqual([(x["sensor"], x["n"]) for x in s["sensors"]], [("3lis", 3), ("oci", 1)])
-        only = stats.compute(self.store, "1h", "oci")
-        self.assertEqual((only["total"], only["byType"]), (1, [{"type": "SSH-Probe", "n": 1}]))
-        self.assertEqual(len(only["sensors"]), 2)  # die Sensor-Karten zeigen immer alle
-        with self.assertRaises(ValueError):
-            stats.compute(self.store, "1h", "x') OR 1=1 --")
         self.store.set_offset("sensor:oci", 0, 50)  # Sensor-DB neu angelegt (max < letzte ID)
         self.assertEqual(sensors.ingest(self.store, "oci", lines(0)), 1)
 

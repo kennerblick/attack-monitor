@@ -20,7 +20,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `tail.py` | Logs fortlaufend lesen, 7-Tage-Seed beim ersten Start, stündliches Prune |
 | `parsers.py` | ein Parser je Quelle → Event-Dict (Zeitstempel aus der Logzeile) |
 | `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
-| `stats.py` | Aggregation je Zeitfenster 1h/24h/7d (optional nur ein Sensor), Hotspots, `byCountry`, Zeitleiste, Heatmap, Sensor-Karten, Samples |
+| `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap, Samples |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
 | `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`/`command()`-Detailtexte (Benutzer, Passwort, Befehl), `shell()` beobachtet Fake-Shell-Sitzungen, `sample()` → `Malware-Sample` |
 | `samples.py` | Malware-Samples: Ablage `<sha256>` (0400, Quota), Art (ELF-Arch/Skript/EXE), gedrosselte Downloads nur von öffentlichen IPs |
@@ -48,7 +48,7 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sen
 | `assets/js/globe.js` | globe.gl: Länder-Färbung, Säulen, Bögen, Ringe, Tooltips, Klick, Ebenen/Drehung |
 | `assets/js/iso-numeric.js` | ISO numerisch → Alpha-2 (Länder-IDs von world-atlas, generiert) |
 | `assets/js/panels.js` | KPIs, Top-Listen (klickbar), Feed, Toast |
-| `assets/js/sensors.js` | Sensoren: feste Farbe je Sensor, Plakette, Karten mit Abrufzustand, Auswahl = Filter der ganzen Seite |
+| `assets/js/sensors.js` | Sensoren: feste Farbe je Sensor, Plakette (Feed, Toast, Detail, Globus-Titel) |
 | `assets/js/drawer.js` | Schublade: Vorgangslisten, Event + IP-Profil, Land; mit Zurück-Verlauf |
 | `assets/js/charts.js` | SVG-Zeitleiste (gestapelt) und Heatmap mit Tooltips |
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |

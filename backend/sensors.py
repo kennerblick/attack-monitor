@@ -14,7 +14,6 @@ KEY = os.environ.get("ATTACK_SENSOR_KEY", "/etc/attack-monitor/sensor_key")
 KNOWN_HOSTS = os.environ.get("ATTACK_SENSOR_KNOWN_HOSTS", "/var/lib/attack-monitor/sensor_known_hosts")
 INTERVAL = 60
 FIELDS = ("ts", "ip", "type", "sev", "src", "port", "detail", "jail")
-PULLS = {}  # name -> {"ok": letzter erfolgreicher Abruf, "error": Zeitpunkt des letzten Fehlers}; für /api/status
 
 
 def load():
@@ -26,10 +25,8 @@ def load():
 
 
 def public(sensors):
-    """Für /api/status: Standort, Beschriftung und Abrufzustand, nie die SSH-Ziele."""
-    return [{**{k: s.get(k) for k in ("name", "lat", "lon", "label", "where")}, "interval": INTERVAL,
-             "lastPull": PULLS.get(s["name"], {}).get("ok"), "lastError": PULLS.get(s["name"], {}).get("error")}
-            for s in sensors]
+    """Für /api/status: Standort und Beschriftung, nie die SSH-Ziele."""
+    return [{k: s.get(k) for k in ("name", "lat", "lon", "label")} for s in sensors]
 
 
 def ingest(store, name, lines):
@@ -68,8 +65,6 @@ def worker(store, sensors):
         for s in sensors:
             try:
                 ingest(store, s["name"], fetch(s, store.get_offset(f"sensor:{s['name']}")[1]))
-                PULLS.setdefault(s["name"], {})["ok"] = time.time()
             except Exception as exc:  # Sensor offline: beim nächsten Durchlauf erneut
-                PULLS.setdefault(s["name"], {})["error"] = time.time()
                 print(f"sensor {s['name']}: {exc}", flush=True)
         time.sleep(INTERVAL)
