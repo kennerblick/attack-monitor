@@ -1,6 +1,6 @@
 # KI-Insights für den Threat Monitor (Ollama auf oci-worker)
 
-**Datum:** 2026-11-10 · **Status:** Ausbaustufen 1 und 2 umgesetzt (2026-11-10)
+**Datum:** 2026-11-10 · **Status:** Ausbaustufen 1–3 umgesetzt (2026-11-10)
 
 ## Kontext
 Der Monitor zeigt Rohereignisse und Statistiken. Er soll dynamischer werden: Trends, Vorhersagen, Wellen und
@@ -39,6 +39,10 @@ volle fremde IPs posten; Abgleich über Themen statt CVEs, weil die Payloads kei
 - **Nachrichtenbezug:** RSS heise Security, BSI/CERT-Bund, CISA KEV (JSON), Mastodon-Hashtags (öffentliche API);
   Abgleich von CVE-Nummern, Produkten und Pfaden mit beobachteten Probes.
   Instagram/X: nein, keine brauchbare öffentliche Such-API.
+
+**Ausbaustufe 3** (umgesetzt 2026-11-10): **Alarmierung** per Telegram (bestehender Weg im Homelab) bei neuer
+Kampagne, neuer ASN-Welle (je ASN und Tag) oder Sitzung mit LLM-Risiko „high“. Eine Sammelmeldung je 15-min-Runde,
+kein Schwall beim Einschalten. Alternative ntfy verworfen: kein ntfy-Dienst vorhanden, Telegram wird schon genutzt.
 
 ## Sicherheit
 - Prompt-Injection: Passwörter, Befehle, User-Agents und SQL kommen vom Angreifer. Im Prompt klar als Daten

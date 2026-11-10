@@ -120,6 +120,10 @@ Entscheidung und Hintergrund: [docs/decisions/2026-11-10-ki-insights.md](docs/de
 - **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Schreibt stündlich einen Lagebericht, benennt
   neue Kampagnen und erklärt neue Befehlsfolgen (`sessions.py`, je Runde max. 3, Anzeige im IP-Profil). Zugang per SSH auf den erzwungenen Befehl `deploy/sensor/llm-proxy.py`
   (Benutzer `attack-llm`). Der Proxy lehnt ab, solange oci-worker rendert (Last > 1 oder < 6 GB frei).
+- **Alarm** (`alerts.py`): am Ende jeder Runde eine Telegram-Sammelmeldung zu neuen Kampagnen, ASN-Wellen und
+  Sitzungen mit KI-Risiko „high“ (je Fund einmal, erster Lauf vermerkt nur den Bestand). Aktiv, sobald
+  `/etc/attack-monitor/alert.json` existiert: `{"telegram_token": "<SECRET>", "chat_id": "<id>"}`
+  (root:attack-monitor, 640); wird jede Runde neu gelesen, kein Neustart nötig.
 - Angreiferdaten gehen nur mit gekürzten IPs ins Prompt und sind dort als Daten markiert. Die Ausgabe wird
   gefiltert (keine Links, kein Markdown, Länge begrenzt) und nur als Text angezeigt.
 

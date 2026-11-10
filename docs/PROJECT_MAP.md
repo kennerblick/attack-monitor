@@ -26,6 +26,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `campaigns.py` | Kampagnen (gleiche Befehlsfolge/Passwortliste über ≥ 3 IPs) und ASN-Wellen, stabiler Schlüssel je Fingerabdruck |
 | `llm.py` | SSH-Aufruf des LLM-Proxys (`Busy` bei Rendering), Ausgabefilter `clean()` |
 | `sessions.py` | LLM-Erklärung je Befehlsfolge (Fingerabdruck wie Kampagnen), `for_ip()` fürs IP-Profil |
+| `alerts.py` | Telegram-Sammelmeldung je insights-Runde: neue Kampagnen/Wellen, Sitzungen mit Risiko „high“; gemeldet = insights kind `alert` |
 | `news.py` | Feeds holen (RSS/Atom, Mastodon, CISA KEV) und über `TOPICS` mit eigenen Events verknüpfen |
 | `insights.py` | Worker: Trend, Kampagnen, LLM-Namen (max. 3/Runde), stündlicher Lagebericht; `payload()` für die API |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap, Samples |
