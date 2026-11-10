@@ -32,7 +32,7 @@ zusammenfassen). Ein lokales 7B-Modell rechnet und prognostiziert unzuverlässig
 3. **Lagebericht** (LLM, stündlich): 24-h-Zusammenfassung aus den Kennzahlen von 1 und 2 (neu, auffällig, Lage).
    Anzeige: Lagebericht-Kasten auf der Startseite mit Zeitstempel und Modellname.
 
-**Ausbaustufe 2** (umgesetzt; Abweichungen: Fingerabdruck = eindeutige Befehle in Reihenfolge, Binär-Müll ignoriert;
+**Ausbaustufe 2** (umgesetzt; Abweichungen: Fingerabdruck = eindeutige Befehle in Reihenfolge, Binär-Müll ignoriert, Zufalls-IDs ≥ 16 Hex-Zeichen → „‹hex›“;
 Mastodon nur mastodon.social #threatintel, weil andere Instanzen Tag-Abfragen nur mit Login erlauben und #honeypot-Bots
 volle fremde IPs posten; Abgleich über Themen statt CVEs, weil die Payloads keine CVE-Nummern enthalten)
 - **Befehls-Analyse:** LLM erklärt Fake-Shell-Sitzungen, Absicht als Plakette im Drawer; Ergebnis je Sitzungs-Hash zwischenspeichern.

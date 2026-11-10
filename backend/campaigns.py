@@ -8,6 +8,7 @@ Welle = ASN, dessen Events der letzten Stunde das WAVE_FACTOR-fache seines Stund
 Der Schlüssel ist ein Hash des Fingerabdrucks: dieselbe Kampagne behält über Tage ihren Namen (insights.py).
 """
 import hashlib
+import re
 
 from intel import mask
 from store import COMMAND, COMMANDS, LOGIN_PW, LOGIN_USER, PASSWORDS
@@ -18,10 +19,23 @@ MIN_CREDS = 3
 MAX_SEQ = 20
 WAVE_FACTOR = 5
 WAVE_MIN = 100
+# Bots hängen je Sitzung Zufalls-IDs an (z. B. echo check_<md5>): ohne Normalisierung wäre jede Folge einzigartig
+TOKEN = re.compile(r"[0-9a-fA-F]{16,}")
+TOKEN_MARK = "‹hex›"
 
 
 def key(kind, fingerprint):
     return hashlib.sha1(f"{kind}\n{fingerprint!r}".encode()).hexdigest()[:12]
+
+
+def normalize(cmd):
+    return TOKEN.sub(TOKEN_MARK, cmd)
+
+
+def like_pattern(cmd):
+    """Normalisierten Befehl als LIKE-Muster (Drilldown „command_like“) zurück auf die echten Events abbilden."""
+    escaped = cmd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return escaped.replace(TOKEN_MARK, "%")
 
 
 def meaningful(cmd):
@@ -39,7 +53,7 @@ def command_prints(store, since, until=None, ip=None):
         cond, args = cond + " AND ip=?", args + [ip]
     seqs = {}
     for addr, cmd in store.query(f"SELECT ip, {COMMAND} FROM events WHERE {cond} AND {COMMANDS} ORDER BY ip, ts, id", args):
-        seq = seqs.setdefault(addr, [])
+        seq, cmd = seqs.setdefault(addr, []), normalize(cmd)
         if len(seq) < MAX_SEQ and meaningful(cmd) and cmd not in seq:
             seq.append(cmd)
     return {addr: tuple(seq) for addr, seq in seqs.items() if seq}
@@ -82,7 +96,9 @@ def summarize(kind, fingerprint, ips, facts):
         types.update((typ or "").split(","))
     if kind == "commands":
         sample = [mask(c) for c in fingerprint[:6]]
-        drill = {"kind": "command", "value": fingerprint[0]}
+        first = fingerprint[0]
+        drill = ({"kind": "command_like", "value": like_pattern(first)} if TOKEN_MARK in first
+                 else {"kind": "command", "value": first})
     else:
         sample = [f"{mask(u)} / {mask(p)}" for u, p in fingerprint[:6]]
         drill = {"kind": "password", "value": fingerprint[0][1]}

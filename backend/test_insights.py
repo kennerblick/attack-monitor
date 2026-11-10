@@ -80,6 +80,14 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(first[0]["drill"]["kind"], "password")
         self.assertEqual(campaigns.detect(self.store, NOW + 600)[0]["key"], first[0]["key"])
 
+    def test_random_session_tokens_are_normalized(self):
+        self.store.add_events([command(ip, f"echo check_{h * 32}_done", NOW - 100) for ip, h in
+                               (("5.5.5.1", "a"), ("5.5.5.2", "b"), ("5.5.5.3", "c"))])
+        c = campaigns.detect(self.store, NOW)[0]
+        self.assertEqual((c["ips"], c["sample"]), (3, ["echo check_‹hex›_done"]))
+        self.assertEqual(c["drill"], {"kind": "command_like", "value": "echo check\\_%\\_done"})
+        self.assertEqual(self.store.events_where(c["drill"]["kind"], c["drill"]["value"], 0)[0], 3)
+
     def test_too_few_creds_or_ips_is_no_campaign(self):
         self.store.add_events([login(ip, "root", "x", NOW - 60) for ip in ("6.6.6.1", "6.6.6.2", "6.6.6.3")])
         self.store.add_events([command(ip, "ls", NOW - 60) for ip in ("7.7.7.1", "7.7.7.2")])

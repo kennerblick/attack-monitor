@@ -55,6 +55,7 @@ FILTERS = {
     "login": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE ? || '%'",
     "password": f"{PASSWORDS} AND {LOGIN_PW}=?",
     "command": f"{COMMANDS} AND {COMMAND}=?",
+    "command_like": f"{COMMANDS} AND {COMMAND} LIKE ? ESCAPE '\\'",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
     "sensor": f"{SENSOR}=?",
     "sample": "e.type='Malware-Sample' AND e.detail LIKE 'Sample „' || ? || '“%'",
