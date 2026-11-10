@@ -17,6 +17,7 @@ from urllib.parse import urljoin, urlsplit
 
 DIR = os.environ.get("ATTACK_SAMPLES", "/var/lib/attack-monitor/samples")
 MAX_SIZE = 10 * 1024 * 1024
+MIN_ELF = 128  # kleinere „ELF“-Dateien sind Dropper-Tests, keine Programme
 MAX_TOTAL = 2 * 1024 ** 3  # danach nur noch Hash und Event, damit Uploads die Platte nicht füllen
 TIMEOUT = 15
 MAX_REDIRECTS = 3
@@ -43,8 +44,10 @@ def kind(data):
 
 
 def looks_executable(data):
-    """Dropper schreiben auch Testdateien („echo AK > .t“); nur Programme und Skripte sind Samples."""
-    return kind(data) != "data" or len(data) >= 1024
+    """Dropper schreiben auch Testdateien („echo AK > .t“, oft nur ein ELF-Kopf); nur Programme und Skripte sind
+    Samples. Kein lauffähiges ELF ist kleiner als MIN_ELF, kurze Skripte (wget …; sh …) zählen dagegen."""
+    found = kind(data)
+    return len(data) >= MIN_ELF if found.startswith("ELF") else found != "data" or len(data) >= 1024
 
 
 def _used():

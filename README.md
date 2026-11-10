@@ -40,8 +40,10 @@ weil nginx `index.php` vor `index.html` bevorzugt. Die anderen Lernseiten im Web
 
 Ausgeführt wird nie etwas; Verbindungen ohne Login zählen als „Server-Erkennung“. FTP lehnt jede Anmeldung
 ab. SSH (nur Passwort, Schlüssel werden abgelehnt) und Telnet nehmen jede Anmeldung an und
-führen in eine Fake-Shell (`backend/fakeshell.py`): BusyBox-Router mit festen Antworten (`uname`,
-`/proc/cpuinfo`, `busybox X` → „applet not found“, Downloads schlagen fehl). Jede Befehlszeile wird ein
+führen in eine Fake-Shell (`backend/fakeshell.py`) mit festen Antworten: Telnet spielt einen ARM-BusyBox-Router
+(`busybox X` → „applet not found“ für Mirai), SSH einen Debian-x86-64-VPS mit 4 Kernen und 8 GB, damit Miner-Bots
+ihre Prüfung bestehen und nachladen. `uname` mit beliebigen Flags, einfache Pipes (`grep`, `wc`, `head`, `tail`,
+`awk '{print $n}'`, `sort`, `uniq`), `free`, `lscpu`, `df`, `which`; Downloads schlagen fehl. Jede Befehlszeile wird ein
 Event (Schwere kritisch, gekürzt auf 100 Zeichen), höchstens 25 je Sitzung, 20 s Timeout je Eingabe.
 SSH erlaubt nur Session-Kanäle, kein Port-Forwarding (sonst offener Proxy).
 - MySQL spielt MariaDB 10.11, nimmt jeden Login an und schneidet SQL-Abfragen mit (Event wie ein
@@ -78,7 +80,7 @@ sie es jede Minute erneut.
 SSH- und Telnet-Honeypot sichern, was Bots nachladen wollen (`backend/samples.py`, Event `Malware-Sample`):
 - Downloads aus der Fake-Shell (`wget`/`curl` http(s), `tftp`) lädt der Honeypot selbst nach: nur öffentliche
   IPv4-Ziele (kein Sprungbrett ins Homelab, DNS-Rebinding abgefangen), max. 10 MB, 60 Downloads/h, je URL 1×/h.
-- Uploads per `scp -t`, per `cat > datei` (Datei auf stdin) und per `echo -ne '\x7f…' > datei` (Dropper, gesichert bei Sitzungsende).
+- Uploads per `scp -t`, per `cat > datei` (Datei auf stdin) und per `echo -ne '\x7f…' > datei` (Dropper, gesichert bei Sitzungsende; ELF erst ab 128 B, kleinere sind Dropper-Tests).
 - Ablage unter `/var/lib/attack-monitor/samples/<sha256>` (0400, max. 2 GB), nie ausgeführt, nie ausgeliefert, nicht ins Backup.
   Die Seite zeigt nur Hash, Art (ELF-Architektur, Skript, EXE), Größe und Quelle, mit Link auf VirusTotal (nur der Hash).
 - Nicht abgedeckt: FTP (lehnt Logins weiter ab), sftp, `ftpget`.

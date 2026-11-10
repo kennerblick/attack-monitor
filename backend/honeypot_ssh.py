@@ -101,7 +101,7 @@ class SSHHoneypot(Honeypot):
                 self.exec(chan, ip, server.command, send)
             else:
                 lines = fakeshell.Lines(lambda n: self._recv(chan, n, server.pty))
-                self.shell(ip, lambda on_line: fakeshell.run_shell(lines, send, on_line))
+                self.shell(ip, lambda on_line: fakeshell.run_shell(lines, send, on_line, fakeshell.SERVER))
             chan.close()
         finally:
             transport.close()
@@ -116,9 +116,9 @@ class SSHHoneypot(Honeypot):
             data = _read_all(chan)
             if data:
                 self.sample(ip, data, command)
-            send(fakeshell.respond(command) or "")
+            send(fakeshell.respond(command, fakeshell.SERVER) or "")
         else:
-            send(fakeshell.respond(command) or "")
+            send(fakeshell.respond(command, fakeshell.SERVER) or "")
         chan.send_exit_status(0)
 
     @staticmethod

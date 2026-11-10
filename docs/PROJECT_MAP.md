@@ -38,7 +38,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `honeypot_ssh.py` | SSH :22 via paramiko (Schlüssel abgelehnt, Passwort angenommen → Fake-Shell/Exec, nur Session-Kanäle; Uploads per `scp -t` und `cat >`) → `SSH-Probe` |
 | `honeypot_telnet.py` | Telnet :23 (Router-Login, IAC filtern, jede Anmeldung → Fake-Shell) → `Telnet-Probe` |
 | `honeypot_php.py` | PHP hinter nginx (127.0.0.1:8098, X-Real-IP): PHP 8.2.34 vortäuschen, WordPress-Login und Payloads mitschneiden → `PHP-Probe` |
-| `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event `Command “…”` (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
+| `fakeshell.py` | Fake-Shell: Profile `ROUTER` (Telnet) / `SERVER` (SSH), feste Antworten, `uname`-Flags, Pipes mit Filtern, Zeilenleser, Sitzungsschleife; Befehle als Event `Command “…”` (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py`, `test_insights.py` | Unit-Tests (`python3 -m unittest`) |
