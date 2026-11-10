@@ -3,11 +3,18 @@
 Pull statt Push: Ein kompromittierter Sensor hat so keinen Weg zu 3lis.de. Konfiguration in ATTACK_SENSORS
 (JSON-Liste: name, ssh, port, lat, lon, label), Schlüssel in ATTACK_SENSOR_KEY; der Sensor erzwingt export.py.
 Die zuletzt übernommene Event-ID je Sensor steht in der offsets-Tabelle (path "sensor:<name>").
+Malware-Samples, die ein Sensor gespeichert hat, werden danach einzeln geholt und lokal abgelegt (samples.save),
+damit sie auf 3lis.de zur Analyse bereitliegen; der Hash wird geprüft, der Sensor ist nicht vertrauenswürdig.
 """
+import hashlib
 import json
 import os
+import re
 import subprocess
 import time
+
+import samples
+from store import SAMPLE_HASH, SAMPLES
 
 CONFIG = os.environ.get("ATTACK_SENSORS", "/etc/attack-monitor/sensors.json")
 KEY = os.environ.get("ATTACK_SENSOR_KEY", "/etc/attack-monitor/sensor_key")
@@ -52,19 +59,46 @@ def ingest(store, name, lines):
     return None
 
 
-def fetch(sensor, last_id):
-    out = subprocess.run(
+def ssh(sensor, command):
+    return subprocess.run(
         ["ssh", "-i", KEY, "-p", str(sensor.get("port", 22)), "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
          "-o", "StrictHostKeyChecking=accept-new", "-o", f"UserKnownHostsFile={KNOWN_HOSTS}",
-         sensor["ssh"], str(last_id)], capture_output=True, text=True, timeout=120, check=True).stdout
-    return out.splitlines()
+         sensor["ssh"], command], capture_output=True, timeout=120, check=True).stdout
+
+
+def fetch(sensor, last_id):
+    return ssh(sensor, str(last_id)).decode().splitlines()
+
+
+def missing_samples(store, name, failed):
+    """Hashes gespeicherter Sensor-Samples, die lokal fehlen („not stored“ = auch auf dem Sensor nicht vorhanden)."""
+    rows = store.query(f"SELECT DISTINCT {SAMPLE_HASH} FROM events WHERE {SAMPLES} AND sensor=? "
+                       "AND detail NOT LIKE '%· not stored%'", (name,))
+    return [h for (h,) in rows if re.fullmatch(r"[0-9a-f]{64}", h or "") and h not in failed
+            and not os.path.exists(os.path.join(samples.DIR, h))]
+
+
+def pull_samples(store, sensor, failed, get=ssh):
+    for digest in missing_samples(store, sensor["name"], failed):
+        try:
+            data = get(sensor, f"sample {digest}")
+        except Exception as exc:  # fehlt auf dem Sensor o. Ä.: in diesem Prozess nicht erneut versuchen
+            print(f"sensor {sensor['name']}: Sample {digest[:12]}: {type(exc).__name__}", flush=True)
+            failed.add(digest)
+            continue
+        if hashlib.sha256(data).hexdigest() != digest:
+            failed.add(digest)
+            continue
+        samples.save(data)
 
 
 def worker(store, sensors):
+    failed = set()
     while True:
         for s in sensors:
             try:
                 ingest(store, s["name"], fetch(s, store.get_offset(f"sensor:{s['name']}")[1]))
+                pull_samples(store, s, failed)
             except Exception as exc:  # Sensor offline: beim nächsten Durchlauf erneut
                 print(f"sensor {s['name']}: {exc}", flush=True)
         time.sleep(INTERVAL)

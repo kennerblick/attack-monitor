@@ -20,6 +20,8 @@ chmod 600 /var/lib/attack-export/.ssh/authorized_keys
 
 install -d -m 755 "$APP"
 install -d -m 2770 -o root -g attack-monitor /var/lib/attack-monitor
+install -d -m 2770 -o root -g attack-monitor /var/lib/attack-monitor/samples
+chmod -f g+r /var/lib/attack-monitor/samples/* 2>/dev/null || true  # Samples für export.py lesbar (früher 0400)
 install -m 644 "$REPO"/backend/{sensor,export,honeypots,honeypot,honeypot_mysql,honeypot_postgres,honeypot_ssh,honeypot_ftp,honeypot_telnet,honeypot_php,fakeshell,samples,parsers,store,tail,visits}.py "$APP"/
 install -m 644 "$REPO/deploy/sensor/attack-sensor.service" /etc/systemd/system/
 

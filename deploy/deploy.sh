@@ -13,6 +13,8 @@ getent group attack-monitor >/dev/null || groupadd -r attack-monitor
 id attack-honeypot >/dev/null 2>&1 || useradd -r -g attack-monitor -d /nonexistent -s /usr/sbin/nologin attack-honeypot
 install -d -m 755 "$APP"
 install -d -m 2770 -o root -g attack-monitor /var/lib/attack-monitor
+install -d -m 2770 -o root -g attack-monitor /var/lib/attack-monitor/samples
+chmod -f g+r /var/lib/attack-monitor/samples/* 2>/dev/null || true  # Samples für export.py lesbar (früher 0400)
 for f in /var/lib/attack-monitor/events.db{,-wal,-shm}; do [ -e "$f" ] && chgrp attack-monitor "$f" && chmod 660 "$f"; done
 [ -e /var/lib/attack-monitor/ssh_host_rsa_key ] && chown attack-honeypot:attack-monitor /var/lib/attack-monitor/ssh_host_rsa_key
 dpkg -s python3-paramiko >/dev/null 2>&1 || apt-get install -y python3-paramiko  # SSH-Honeypot

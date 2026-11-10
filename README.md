@@ -91,7 +91,7 @@ dazu nginx auf 80/443 (Standardseite, `.php` an den PHP-Honeypot, Web-Probes aus
 und speichert sie mit dem Sensor-Namen (`events.sensor`, leer = 3lis.de). Pull statt Push: Der Sensor hat keinen
 Zugang zu 3lis.de, und der Schlüssel von 3lis.de darf auf dem Sensor nur `export.py` ausführen (`restrict`).
 Auf der Seite hat jeder Sensor eine feste Farbe (Plakette in Feed/Toast/Detail, Globus-Standort und -Titel, Einschlag-Ring);
-die Bögen enden am getroffenen Sensor. Samples liegen auf dem Sensor, nach 3lis.de kommt nur das Event.
+die Bögen enden am getroffenen Sensor. Samples speichert der Sensor; 3lis.de holt sie per `export.py sample <sha256>` nach `/var/lib/attack-monitor/samples/`.
 
 Sensor einrichten/aktualisieren (echtes sshd vorher auf 22022 umziehen, Ports in der Cloud-Firewall öffnen):
 ```bash

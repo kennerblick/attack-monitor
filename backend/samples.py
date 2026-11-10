@@ -60,9 +60,10 @@ def save(data):
             return digest, True
         if _used() + len(data) > MAX_TOTAL:
             return digest, False
-        os.makedirs(DIR, mode=0o750, exist_ok=True)
+        os.makedirs(DIR, mode=0o770, exist_ok=True)
         tmp = path + ".tmp"
-        with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o400), "wb") as f:
+        # 0440: Gruppe attack-monitor darf lesen (export.py auf dem Sensor, Root-freier Zugriff zur Analyse)
+        with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o440), "wb") as f:
             f.write(data)
         os.replace(tmp, path)
     return digest, True
