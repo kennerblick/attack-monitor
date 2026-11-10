@@ -5,7 +5,7 @@ Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
 (`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s, Insights 60 s; `drawer.js` lädt Drilldown/Profil bei Klick).
-Insights: `insights.py` (alle 15 min) ← `trends.py` + `campaigns.py` aus `events`; Texte per `llm.py` → SSH →
+Insights: `insights.py` (alle 15 min) ← `trends.py` + `campaigns.py` + `news.py` (Feeds) aus `events`; Texte per `llm.py` → SSH →
 oci-worker `llm-proxy.py` → Ollama; Ergebnis in Tabelle `insights` → `/api/insights`.
 
 ## Backend (`backend/`, stdlib + `python3-paramiko`)
@@ -25,6 +25,8 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `trends.py` | Stundenzählung, Erwartung je Tagesstunde (Median/MAD), 24-h-Prognose, Spitzen |
 | `campaigns.py` | Kampagnen (gleiche Befehlsfolge/Passwortliste über ≥ 3 IPs) und ASN-Wellen, stabiler Schlüssel je Fingerabdruck |
 | `llm.py` | SSH-Aufruf des LLM-Proxys (`Busy` bei Rendering), Ausgabefilter `clean()` |
+| `sessions.py` | LLM-Erklärung je Befehlsfolge (Fingerabdruck wie Kampagnen), `for_ip()` fürs IP-Profil |
+| `news.py` | Feeds holen (RSS/Atom, Mastodon, CISA KEV) und über `TOPICS` mit eigenen Events verknüpfen |
 | `insights.py` | Worker: Trend, Kampagnen, LLM-Namen (max. 3/Runde), stündlicher Lagebericht; `payload()` für die API |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap, Samples |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
@@ -43,7 +45,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sensor NULL = 3lis.de),
 `geo(ip, lat, lon, cc, country, city, isp, asn, fetched, org, hosting, proxy, mobile)`, `offsets(path, inode, pos)`,
 `visits(day, ts, visitor, path, ref)`, `humans(day, visitor)` (Besucher mit Ressourcen-Abruf),
-`insights(kind, key, ts, data, text, model)` (kind trend/campaign/report; data JSON, text = LLM, bei Kampagnen JSON name/summary/intent).
+`insights(kind, key, ts, data, text, model)` (kind trend/campaign/report/session/feed/related; data JSON, text = LLM, bei Kampagnen/Sitzungen JSON).
 
 ## Frontend (`frontend/` → `/var/www/lernseite/`)
 | Pfad | Zweck |
@@ -58,7 +60,7 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sen
 | `assets/js/sensors.js` | Sensoren: feste Farbe je Sensor, Plakette (Feed, Toast, Detail, Globus-Titel) |
 | `assets/js/drawer.js` | Schublade: Vorgangslisten, Event + IP-Profil, Land; mit Zurück-Verlauf |
 | `assets/js/charts.js` | SVG-Zeitleiste (gestapelt), Heatmap und Trend/Prognose mit Tooltips |
-| `assets/js/insights.js` | Lagebild: Lagebericht, Trend-Hinweis, Kampagnen-Karten (Klick = Vorgänge 24 h) |
+| `assets/js/insights.js` | Lagebild: Lagebericht, Trend-Hinweis, Kampagnen-Karten (Klick = Vorgänge 24 h), „Passt zu“; `sessionBlock()` fürs IP-Profil |
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |
 | `assets/vendor/` | globe.gl 2.46.2, topojson-client 3.1.0, world-atlas 2.0.2, @strudel/web 1.3.0 (+ clockworker) |
 | `strudel/` | Groove Machine: `genres/` (je Genre 12 Spuren + Varianten/Subgenres, `index.js`), `code.js` (Code-Generator: Anzeige mit festen Werten, gespielt mit `grooveFx`), `fx.js` (Echtzeit-FX über `withValue`/`ref`: DJ-Filter, Regler, Halte-Effekte), `live.js` (Live-Code-Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`), `samples.js` (eigene Samples: Dateien in IndexedDB, Bank-URLs in localStorage, Spur „Eigene Samples“) |

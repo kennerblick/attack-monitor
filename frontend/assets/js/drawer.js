@@ -3,6 +3,7 @@
 import { typeInfo, num, flag, time, dateTime, esc, service, SEVERITY } from "./format.js";
 import { feedItem } from "./panels.js";
 import { sensorBadge } from "./sensors.js";
+import { sessionBlock } from "./insights.js";
 
 const $ = id => document.getElementById(id);
 const getJson = url => fetch(url, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
@@ -90,6 +91,7 @@ function renderProfile(p, ev) {
   $("ip-profile").innerHTML =
     `<div class="verdict cat-${p.cls.category}"><b>${esc(p.cls.name || p.cls.label)}</b>` +
     `${p.cls.name ? `<small>${esc(p.cls.label)}</small>` : ""}<p>${esc(p.cls.desc)}</p><p class="v">${esc(p.verdict)}</p></div>` +
+    sessionBlock(p.session) +
     dl([
       ["IP", `${esc(p.ip)} <small>(/24 gekürzt)</small>`], ["rDNS", esc(p.host) || "–"],
       ["Ort", g.cc ? `${flag(g.cc)} ${esc(g.city || "")}, ${esc(g.country)}` : "–"],

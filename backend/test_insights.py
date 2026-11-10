@@ -6,6 +6,8 @@ from unittest import mock
 import campaigns
 import insights
 import llm
+import news
+import sessions
 import trends
 from store import Store
 
@@ -107,6 +109,9 @@ class InsightsTests(unittest.TestCase):
     def setUp(self):
         self.store = Store(":memory:")
         self.store.add_events([command(ip, "uname -a", NOW - 100) for ip in ("1.1.1.1", "2.2.2.2", "3.3.3.3")])
+        patcher = mock.patch("news.fetch")  # kein Netz in Tests
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_without_llm(self):
         insights.run_once(self.store, None, NOW)
@@ -118,12 +123,14 @@ class InsightsTests(unittest.TestCase):
         self.assertIn("forecast", p["trend"])
 
     def test_with_llm_names_once_and_reports(self):
-        answers = [(json.dumps({"name": "Uname Recon", "summary": "Bots fingerprint hosts.", "intent": "recon"}), "m"),
-                   ("Activity was **normal**. See https://x.com", "m")]
+        answers = [("Activity was **normal**. See https://x.com", "m"),
+                   (json.dumps({"name": "Uname Recon", "summary": "Bots fingerprint hosts.", "intent": "recon"}), "m"),
+                   (json.dumps({"summary": "Fingerprints the OS.", "intent": "recon", "risk": "low"}), "m")]
         with mock.patch("llm.ask", side_effect=answers) as ask:
             insights.run_once(self.store, {"ssh": "x"}, NOW)
-            insights.run_once(self.store, {"ssh": "x"}, NOW + 900)  # benannt, Bericht noch frisch: kein Aufruf
-        self.assertEqual(ask.call_count, 2)
+            insights.run_once(self.store, {"ssh": "x"}, NOW + 900)  # alles erledigt, Bericht noch frisch: kein Aufruf
+        self.assertEqual(ask.call_count, 3)
+        self.assertEqual(sessions.for_ip(self.store, "1.1.1.1")["analysis"]["intent"], "recon")
         with mock.patch("time.time", return_value=NOW):
             p = insights.payload(self.store, True)
         self.assertEqual(p["campaigns"][0]["label"]["name"], "Uname Recon")
@@ -137,6 +144,55 @@ class InsightsTests(unittest.TestCase):
     def test_bad_name_json_is_ignored(self):
         self.assertIsNone(insights.parse_name("not json"))
         self.assertEqual(insights.parse_name('{"name": "X", "intent": "evil"}')["intent"], "other")
+
+
+class SessionTests(unittest.TestCase):
+    def setUp(self):
+        self.store = Store(":memory:")
+
+    def test_junk_ignored_and_repeats_collapsed(self):
+        self.store.add_events([command("9.9.9.9", c, NOW - 100 + i) for i, c in enumerate(
+            ["?", "\ufffd\ufffd", "uname -a", "id", "uname -a", "id"])])
+        self.assertEqual(campaigns.command_prints(self.store, 0)["9.9.9.9"], ("uname -a", "id"))
+        s = sessions.for_ip(self.store, "9.9.9.9")
+        self.assertEqual((s["commands"], s["analysis"]), (["uname -a", "id"], None))
+        self.assertIsNone(sessions.for_ip(self.store, "1.1.1.1"))
+
+    def test_parse_validates(self):
+        intents = insights.INTENTS
+        self.assertIsNone(sessions.parse("[]", intents))
+        a = sessions.parse('{"summary": "Drops **mirai** from http://1.2.3.4/x", "intent": "x", "risk": "extreme"}', intents)
+        self.assertEqual((a["intent"], a["risk"]), ("other", None))
+        self.assertNotIn("http", a["summary"])
+
+
+RSS = b"""<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>Hackers exploit OpenSSH flaw</title><link>https://www.bleepingcomputer.com/a</link><pubDate>Mon, 09 Nov 2026 10:00:00 GMT</pubDate></item>
+<item><title>Ransomware hits university database</title><link>https://www.bleepingcomputer.com/b</link><pubDate>Mon, 09 Nov 2026 10:00:00 GMT</pubDate></item>
+<item><title>Phishing via evil link</title><link>https://evil.example/c</link><pubDate>Mon, 09 Nov 2026 10:00:00 GMT</pubDate></item>
+</channel></rss>"""
+
+
+class NewsTests(unittest.TestCase):
+    def test_rss_safe_and_match(self):
+        now = news._ts("Tue, 10 Nov 2026 10:00:00 GMT")
+        items = news._safe(news.parse_rss(RSS), "bleepingcomputer.com")
+        self.assertEqual(len(items), 2)  # fremde Domain verworfen
+        result = news.match({"BleepingComputer": items}, {"ssh": (100, 5), "mysql-ransom": (50, 3)}, now)
+        self.assertEqual([r["topic"] for r in result], ["ssh"])  # allgemeine Ransomware ist keine DB-Erpressung
+
+    def test_mastodon_masks_ips_and_links_locally(self):
+        data = json.dumps([{"id": "1", "created_at": "2026-11-09T10:00:00Z", "account": {"acct": "a@infosec.exchange"},
+                            "content": "<p>Scanner 5.6.7.8 hunting .env</p>"}]).encode()
+        items = news._safe(news.parse_mastodon(data), "mastodon.social")
+        self.assertEqual(items[0]["title"], "Scanner 5.6.7.x hunting .env")
+        self.assertTrue(items[0]["url"].startswith("https://mastodon.social/@a@infosec.exchange/1"))
+
+    def test_evidence_threshold(self):
+        store = Store(":memory:")
+        store.add_events([{"ts": NOW - 60, "ip": "1.1.1.%d" % i, "type": "Web-Probe", "detail": "GET /.env → 404"}
+                          for i in range(news.MIN_EVENTS)])
+        self.assertEqual(news.evidence(store, NOW), {"secrets": (news.MIN_EVENTS, news.MIN_EVENTS)})
 
 
 if __name__ == "__main__":

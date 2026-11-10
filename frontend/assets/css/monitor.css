@@ -208,3 +208,20 @@
   .insights > .panel:nth-child(2) { grid-column: 1 / -1; order: -1; }
 }
 @media (max-width: 900px) { .insights { grid-template-columns: 1fr; } }
+
+/* Passt zu (Nachrichtenbezug) und KI-Sitzungsanalyse im IP-Profil */
+.insights > .related-panel { grid-column: 1 / -1; }
+.related { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+.related .topic { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.related .topic > small { display: block; color: var(--ink-3); font: 11px var(--mono); margin: 2px 0 6px; }
+.related ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.related a { color: var(--ink); font-size: 12px; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.related a:hover { color: var(--accent); }
+.related li small { display: block; color: var(--ink-3); font: 10px var(--mono); }
+.ai-box { margin: 10px 0; padding: 10px 12px; border: 1px solid #4fd1ff44; border-radius: 10px; background: #4fd1ff0d; font-size: 13px; }
+.ai-box p { margin: 6px 0 4px; color: var(--ink); }
+.ai-box small { color: var(--ink-3); font: 10px var(--mono); }
+.risk { padding: 0 6px; border-radius: 5px; font: 700 10px/16px var(--mono); border: 1px solid; }
+.risk-low { color: #7be07b; border-color: #0ca30c55; }
+.risk-medium { color: #f2c35c; border-color: #c9850055; }
+.risk-high { color: #f19a9a; border-color: #d03b3b55; }

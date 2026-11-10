@@ -4,7 +4,8 @@ Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf
 ein interaktiver 3D-Globus (Länder nach Angriffen eingefärbt, Herde als Säulen, Live-Bögen, Tooltips,
 Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länder, ASN, Ports,
 Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste, eine Wochen-Heatmap und ein Lagebild
-(KI-Lagebericht, Trend & Prognose, erkannte Kampagnen und Wellen, siehe unten). Jeder Top-Listen-Eintrag
+(KI-Lagebericht, Trend & Prognose, erkannte Kampagnen und Wellen, passende Sicherheitsmeldungen, KI-Analyse
+der Angreifer-Sitzungen im IP-Profil, siehe unten). Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
 **Strudel Groove Machine** (6 Genres inkl. Paul-Kalkbrenner-Stil mit je 6–9 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen, eigene Samples aus dem Browser oder per Sample-Bank-URL), die
@@ -112,8 +113,11 @@ Entscheidung und Hintergrund: [docs/decisions/2026-11-10-ki-insights.md](docs/de
   Prognose 24 h = Erwartung × aktuelles Niveau (abklingend), Spitzen = Stunden über dem Band.
 - **Kampagnen** (`campaigns.py`): ≥ 3 IPs mit identischer Befehlsfolge oder identischer Passwortliste (24 h);
   **Wellen** = ASN mit dem Fünffachen seines Stundenmittels in der letzten Stunde.
-- **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Benennt neue Kampagnen (einmal je Kampagne)
-  und schreibt stündlich einen Lagebericht. Zugang per SSH auf den erzwungenen Befehl `deploy/sensor/llm-proxy.py`
+- **Passt zu** (`news.py`): stündlich heise Security, BleepingComputer, BSI WID, mastodon.social #threatintel, täglich
+  CISA KEV. Abgleich über Themen (WordPress, .env/Secrets, .git, Spring Actuator, DB-Erpressung, Mirai/IoT, VPN-Gateways …):
+  SQL-Bedingung auf die eigenen Events der letzten 7 Tage (≥ 20) und Stichwort-Muster auf Meldungen (14 Tage, KEV 60 Tage).
+- **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Schreibt stündlich einen Lagebericht, benennt
+  neue Kampagnen und erklärt neue Befehlsfolgen (`sessions.py`, je Runde max. 3, Anzeige im IP-Profil). Zugang per SSH auf den erzwungenen Befehl `deploy/sensor/llm-proxy.py`
   (Benutzer `attack-llm`). Der Proxy lehnt ab, solange oci-worker rendert (Last > 1 oder < 6 GB frei).
 - Angreiferdaten gehen nur mit gekürzten IPs ins Prompt und sind dort als Daten markiert. Die Ausgabe wird
   gefiltert (keine Links, kein Markdown, Länge begrenzt) und nur als Text angezeigt.
@@ -163,6 +167,8 @@ nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled
 - Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`. Eigene Samples
   bleiben im Browser (IndexedDB); selbst eingetragene Sample-Bänke lädt der Browser direkt von dort.
 - Das Sprachmodell läuft auf eigener Infrastruktur (oci-worker), keine externe KI-API.
+- Sicherheitsmeldungen (heise, BleepingComputer, BSI, mastodon.social, CISA) holt der Server; Besucher bekommen nur Titel
+  und Link (nur https auf die Domain der Quelle, IPs in Fremd-Posts gekürzt) und verlassen die Seite erst beim Klick.
 - Konzept zum Umwandeln echter Songs in Patterns: [docs/song-konvertierung.md](docs/song-konvertierung.md).
 
 ## Struktur

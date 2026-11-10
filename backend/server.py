@@ -7,8 +7,8 @@ Endpoints (alle JSON, nur lesend):
   /api/status            Server-Standort, Außensensoren, aktive fail2ban-Bans, Sperrliste
   /api/events?kind=type|cc|asn|port|user|password|command|path|jail|sensor|ip&value=..&range=..   Vorgänge zu einem Top-Listen-Eintrag
   /api/visits            Besucherstatistik (nginx schützt den Pfad per Authelia)
-  /api/insights          Trend/Prognose, Kampagnen, KI-Lagebericht (insights.py)
-  /api/ip?id=<event-id>  Profil der IP hinter einem Event (Verlauf, Verhalten, rDNS, Einstufung, Sperrstatus)
+  /api/insights          Trend/Prognose, Kampagnen, KI-Lagebericht, Nachrichtenbezug (insights.py, news.py)
+  /api/ip?id=<event-id>  Profil der IP hinter einem Event (Verlauf, Verhalten, rDNS, Einstufung, Sperrstatus, KI-Sitzungsanalyse)
 Angreifer-IPs werden vor der Auslieferung auf /24 gekürzt (DSGVO).
 """
 import ast
@@ -26,6 +26,7 @@ import intel
 import llm
 from intel import mask
 import sensors
+import sessions
 import stats
 import tail
 import visits
@@ -83,7 +84,7 @@ def ip_profile(store, event_id):
     p["users"] = [(mask(u), n) for u, n in p["users"]]
     p["paths"] = [(mask(x), n) for x, n in p["paths"]]
     p.update(ip=mask(ip), host=intel.mask_host(host, ip), cls=cls, verdict=intel.verdict(cls, p),
-             banned=banned, denied=ip in cached("denied", 300, denied_ips))
+             banned=banned, denied=ip in cached("denied", 300, denied_ips), session=sessions.for_ip(store, ip))
     return p
 
 

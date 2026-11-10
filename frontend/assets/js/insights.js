@@ -1,13 +1,25 @@
-// KI-Lagebild: Lagebericht (LLM, englisch), Trend & Prognose, Kampagnen. Daten: /api/insights (insights.py).
+// KI-Lagebild: Lagebericht (LLM, englisch), Trend & Prognose, Kampagnen, passende Meldungen; Sitzungsanalyse fürs IP-Profil. Daten: /api/insights (insights.py).
 // LLM-Texte kommen gefiltert vom Server und werden trotzdem nur escaped bzw. als textContent eingesetzt.
 import { num, flag, esc } from "./format.js";
 import { renderForecast } from "./charts.js";
 
 const $ = id => document.getElementById(id);
-const INTENT = {
+export const INTENT = {
   recon: "Aufklärung", "credential-stuffing": "Zugangsdaten", "botnet-recruitment": "Botnetz", cryptomining: "Krypto-Mining",
-  persistence: "Einnisten", exploitation: "Exploit", other: "Sonstiges",
+  persistence: "Einnisten", exploitation: "Exploit", ransom: "Erpressung", other: "Sonstiges",
 };
+const RISK = { low: "niedrig", medium: "mittel", high: "hoch" };
+
+// KI-Analyse der Befehlsfolge einer IP (drawer.js, Daten aus /api/ip → session)
+export function sessionBlock(s) {
+  if (!s) return "";
+  const head = "<b>KI-Analyse der Sitzung</b>";
+  if (!s.analysis) return `<div class="ai-box">${head}<p class="empty">Wird bei einer der nächsten Auswertungen erstellt.</p></div>`;
+  const a = s.analysis;
+  return `<div class="ai-box">${head} <span class="intent">${esc(INTENT[a.intent] || a.intent)}</span>` +
+    (a.risk ? ` <span class="risk risk-${a.risk}">Risiko ${RISK[a.risk]}</span>` : "") +
+    `<p>${esc(a.summary)}</p><small>${esc(s.model)} · englisch · lokales Sprachmodell, kann irren</small></div>`;
+}
 
 function ago(ts) {
   const min = Math.round((Date.now() / 1000 - ts) / 60);
@@ -62,8 +74,19 @@ function renderCampaigns(list, onPick) {
   });
 }
 
+const day = ts => new Date(ts * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+
+function renderRelated(list) {
+  const el = $("related");
+  if (!list?.length) { el.innerHTML = '<p class="empty">Keine passenden Meldungen zu den beobachteten Angriffen.</p>'; return; }
+  el.innerHTML = list.map(r => `<div class="topic"><b>${esc(r.label)}</b><small>${num(r.events)} Vorgänge · ${num(r.ips)} IPs · 7 Tage</small>` +
+    `<ul>${r.matches.map(m => `<li><a href="${esc(m.url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(m.title)}</a>` +
+      `<small>${esc(m.source)} · ${day(m.date)}</small></li>`).join("")}</ul></div>`).join("");
+}
+
 export function renderInsights(data, onPick) {
   renderReport(data.report, data.llm);
+  renderRelated(data.related);
   renderTrend(data.trend);
   renderCampaigns(data.campaigns, onPick);
 }

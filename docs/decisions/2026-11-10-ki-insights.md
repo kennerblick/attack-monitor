@@ -1,6 +1,6 @@
 # KI-Insights für den Threat Monitor (Ollama auf oci-worker)
 
-**Datum:** 2026-11-10 · **Status:** Ausbaustufe 1 umgesetzt (2026-11-10), Ausbaustufe 2 offen
+**Datum:** 2026-11-10 · **Status:** Ausbaustufen 1 und 2 umgesetzt (2026-11-10)
 
 ## Kontext
 Der Monitor zeigt Rohereignisse und Statistiken. Er soll dynamischer werden: Trends, Vorhersagen, Wellen und
@@ -32,7 +32,9 @@ zusammenfassen). Ein lokales 7B-Modell rechnet und prognostiziert unzuverlässig
 3. **Lagebericht** (LLM, stündlich): 24-h-Zusammenfassung aus den Kennzahlen von 1 und 2 (neu, auffällig, Lage).
    Anzeige: Lagebericht-Kasten auf der Startseite mit Zeitstempel und Modellname.
 
-**Ausbaustufe 2 (später)**
+**Ausbaustufe 2** (umgesetzt; Abweichungen: Fingerabdruck = eindeutige Befehle in Reihenfolge, Binär-Müll ignoriert;
+Mastodon nur mastodon.social #threatintel, weil andere Instanzen Tag-Abfragen nur mit Login erlauben und #honeypot-Bots
+volle fremde IPs posten; Abgleich über Themen statt CVEs, weil die Payloads keine CVE-Nummern enthalten)
 - **Befehls-Analyse:** LLM erklärt Fake-Shell-Sitzungen, Absicht als Plakette im Drawer; Ergebnis je Sitzungs-Hash zwischenspeichern.
 - **Nachrichtenbezug:** RSS heise Security, BSI/CERT-Bund, CISA KEV (JSON), Mastodon-Hashtags (öffentliche API);
   Abgleich von CVE-Nummern, Produkten und Pfaden mit beobachteten Probes.
