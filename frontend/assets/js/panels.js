@@ -5,7 +5,7 @@ import { sensorBadge, sensorSites, multiSensor } from "./sensors.js";
 const $ = id => document.getElementById(id);
 
 function bars(el, rows, render, onPick) {
-  if (!rows.length) { el.innerHTML = '<li class="empty">Keine Daten im Zeitfenster</li>'; return; }
+  if (!rows.length) { el.innerHTML = '<li class="empty">No data in time range</li>'; return; }
   const max = Math.max(...rows.map(r => r.n));
   el.innerHTML = rows.map(r => {
     const { icon, name, color } = render(r);
@@ -19,17 +19,17 @@ function bars(el, rows, render, onPick) {
 export function renderKpis(stats, status) {
   if (stats) {
     $("k-total").textContent = num(stats.total);
-    $("k-rate").textContent = stats.perMinute.toLocaleString("de-DE", { maximumFractionDigits: 1 });
+    $("k-rate").textContent = stats.perMinute.toLocaleString("en-GB", { maximumFractionDigits: 1 });
     $("k-ips").textContent = num(stats.uniqueIps);
     $("k-countries").textContent = num(stats.countries);
-    $("k-total-sub").textContent = { "1h": "letzte Stunde", "24h": "letzte 24 Stunden", "7d": "letzte 7 Tage" }[stats.range];
+    $("k-total-sub").textContent = { "1h": "last hour", "24h": "last 24 hours", "7d": "last 7 days" }[stats.range];
   }
   if (status) {
     $("k-bans").textContent = num(status.bansTotal);
     const top = Object.entries(status.bans).filter(([, n]) => n).map(([j, n]) => `${j} ${n}`).join(" · ");
     $("k-bans-sub").textContent = top || "fail2ban";
     $("k-block").textContent = num(status.blocklist);
-    $("server-loc").innerHTML = "Sensoren: " + sensorSites().map(s => sensorBadge(s.name)).join("");
+    $("server-loc").innerHTML = "Sensors: " + sensorSites().map(s => sensorBadge(s.name)).join("");
   }
 }
 
@@ -58,20 +58,20 @@ export function renderLists(stats, onCountry, onPick) {
   bars($("users"), stats.usersTop, r => ({
     icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${LOGIN_SOURCE[r.type]}</small>`,
     color: typeInfo(r.type).color,
-  }), r => onPick("user", r.user, `Login als „${esc(r.user)}“ (SSH, FTP, Telnet, MySQL und Postgres)`));
+  }), r => onPick("user", r.user, `Login as “${esc(r.user)}” (SSH, FTP, Telnet, MySQL and Postgres)`));
   const rest = stats.usersAll && stats.usersAll.names - stats.usersTop.length;
   if (rest > 0) {
     const shown = stats.usersTop.reduce((sum, r) => sum + r.n, 0);
-    $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} weitere Namen · ` +
-      `${num(stats.usersAll.n - shown)} Versuche <span class="val">alle ${num(stats.usersAll.n)} →</span></li>`);
-    $("users").lastElementChild.onclick = () => onPick("login", "Login-Versuch", "Alle Login-Versuche (SSH, FTP, Telnet, MySQL und Postgres)");
+    $("users").insertAdjacentHTML("beforeend", `<li class="pick more">+ ${num(rest)} more names · ` +
+      `${num(stats.usersAll.n - shown)} attempts <span class="val">all ${num(stats.usersAll.n)} →</span></li>`);
+    $("users").lastElementChild.onclick = () => onPick("login", "Login attempt", "All login attempts (SSH, FTP, Telnet, MySQL and Postgres)");
   }
   bars($("passwords"), stats.passwordsTop, r => ({ icon: '<span class="flag">🔑</span>', name: esc(r.password), color: "#e66767" }),
-    r => onPick("password", r.password, `Passwort „${esc(r.password)}“ (Honeypots)`));
+    r => onPick("password", r.password, `Password “${esc(r.password)}” (honeypots)`));
   bars($("commands"), stats.commandsTop, r => ({ icon: '<span class="flag">⌨️</span>', name: esc(r.command), color: "#8aa0b8" }),
-    r => onPick("command", r.command, `Befehl „${esc(r.command)}“ (SSH-/Telnet-/Datenbank-Honeypot)`));
+    r => onPick("command", r.command, `Command “${esc(r.command)}” (SSH/Telnet/database honeypot)`));
   bars($("paths"), stats.pathsTop, r => ({ icon: '<span class="flag">🔎</span>', name: esc(r.path), color: "#d95926" }),
-    r => onPick("path", r.path, `Pfad ${esc(r.path)}`));
+    r => onPick("path", r.path, `Path ${esc(r.path)}`));
   bars($("samples"), stats.samplesTop || [], r => ({
     icon: '<span class="flag">🧬</span>', name: `${esc(r.hash.slice(0, 12))}…<small>${esc(r.kind)} · ${esc(r.size)}</small>`,
     color: typeInfo("Malware-Sample").color,
@@ -91,7 +91,7 @@ export function feedItem(ev) {
 
 export function renderFeed(events, newIds, onSelect) {
   const el = $("feed");
-  if (!events.length) { el.innerHTML = '<li class="empty">Keine Angriffe für diesen Filter</li>'; return; }
+  if (!events.length) { el.innerHTML = '<li class="empty">No attacks for this filter</li>'; return; }
   el.innerHTML = events.map(feedItem).join("");
   el.querySelectorAll("li[data-id]").forEach(li => {
     const id = Number(li.dataset.id);

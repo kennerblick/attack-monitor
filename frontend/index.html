@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3lis.de · Live Threat Monitor</title>
-<meta name="description" content="Echtzeit-Lagebild aller Angriffe auf 3lis.de und seine Außensensoren: Herkunft, Angriffsarten, Ports, Netze, Malware.">
+<meta name="description" content="Real-time picture of all attacks on 3lis.de and its remote sensors: origin, attack types, ports, networks, malware.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%233987e5'/><circle cx='16' cy='16' r='5' fill='%23060a14'/></svg>">
 <link rel="stylesheet" href="/assets/css/base.css">
 <link rel="stylesheet" href="/assets/css/monitor.css">
@@ -14,57 +14,57 @@
   <a class="brand" href="/"><span class="brand-mark">3L</span><span>3LIS.DE<small>THREAT MONITOR</small></span></a>
   <span class="live-pill" id="live"><i></i>LIVE</span>
   <span class="clock" id="clock"></span>
-  <div class="ranges" role="group" aria-label="Zeitfenster">
+  <div class="ranges" role="group" aria-label="Time range">
     <button data-range="1h" aria-pressed="false">1 H</button>
     <button data-range="24h" aria-pressed="true">24 H</button>
-    <button data-range="7d" aria-pressed="false">7 T</button>
+    <button data-range="7d" aria-pressed="false">7 D</button>
   </div>
-  <nav class="nav"><a href="/" aria-current="page">Monitor</a><a href="/strudel/">Strudel</a><a href="/lernen/">Lernen</a></nav>
+  <nav class="nav"><a href="/" aria-current="page">Monitor</a><a href="/strudel/">Strudel</a><a href="/lernen/" hreflang="de">Learn (DE)</a></nav>
 </header>
 
 <main class="wrap">
   <section class="hero">
     <div>
-      <h1>Das Internet klopft an. <span>Live.</span></h1>
-      <p>Jeder Port-Scan, jeder Login-Versuch, jede Schwachstellen-Suche, in Echtzeit von mehreren Sensoren: dem Server 3lis.de (portsentry, sshd, nginx, fail2ban, Honeypots) und Außensensoren mit eigenen Honeypots in fremden Netzen.</p>
+      <h1>The internet is knocking. <span>Live.</span></h1>
+      <p>Every port scan, every login attempt, every vulnerability probe, in real time from several sensors: the 3lis.de server (portsentry, sshd, nginx, fail2ban, honeypots) and remote sensors with their own honeypots in other networks.</p>
     </div>
   </section>
 
-  <section class="kpis" aria-label="Kennzahlen">
-    <div class="kpi"><label>Angriffe</label><strong id="k-total">–</strong><small id="k-total-sub">im Zeitfenster</small></div>
-    <div class="kpi"><label>Pro Minute</label><strong id="k-rate">–</strong><small>Durchschnitt</small></div>
-    <div class="kpi"><label>Angreifer-IPs</label><strong id="k-ips">–</strong><small>eindeutig</small></div>
-    <div class="kpi"><label>Länder</label><strong id="k-countries">–</strong><small>Herkunft</small></div>
-    <div class="kpi"><label>Aktive Bans</label><strong id="k-bans">–</strong><small id="k-bans-sub">fail2ban</small></div>
-    <div class="kpi"><label>Sperrliste</label><strong id="k-block">–</strong><small>dauerhaft geblockte IPs</small></div>
+  <section class="kpis" aria-label="Key figures">
+    <div class="kpi"><label>Attacks</label><strong id="k-total">–</strong><small id="k-total-sub">in time range</small></div>
+    <div class="kpi"><label>Per minute</label><strong id="k-rate">–</strong><small>average</small></div>
+    <div class="kpi"><label>Attacker IPs</label><strong id="k-ips">–</strong><small>unique</small></div>
+    <div class="kpi"><label>Countries</label><strong id="k-countries">–</strong><small>origin</small></div>
+    <div class="kpi"><label>Active bans</label><strong id="k-bans">–</strong><small id="k-bans-sub">fail2ban</small></div>
+    <div class="kpi"><label>Blocklist</label><strong id="k-block">–</strong><small>permanently blocked IPs</small></div>
   </section>
 
-  <section class="insights" aria-label="Lagebild">
-    <div class="panel"><h2>Lagebericht <em id="report-meta"></em></h2><p class="report-text empty" id="report">Lade …</p>
-      <p class="ai-note">Automatisch erstellt von einem lokalen Sprachmodell (englisch) aus den Kennzahlen dieser Seite. Kann Fehler enthalten.</p></div>
-    <div class="panel"><h2>Trend &amp; Prognose <em>24 Std. Ist · 24 Std. Prognose</em></h2>
-      <svg class="chart" id="forecast" role="img" aria-label="Angriffe je Stunde mit Erwartungsband und Prognose"></svg><p class="trend-note" id="trend-note"></p></div>
-    <div class="panel"><h2>Kampagnen <em>24 Std. · Klick = Vorgänge</em></h2><ul class="camps" id="campaigns"><li class="empty">Lade …</li></ul></div>
-    <div class="panel related-panel"><h2>Passt zu <em>aktuelle Meldungen zu beobachteten Angriffen · heise · BleepingComputer · BSI · CISA KEV · Mastodon</em></h2>
-      <div class="related" id="related"><p class="empty">Lade …</p></div></div>
+  <section class="insights" aria-label="Threat picture">
+    <div class="panel"><h2>Situation report <em id="report-meta"></em></h2><p class="report-text empty" id="report">Loading …</p>
+      <p class="ai-note">Generated automatically by a local language model from the figures on this page. May contain errors.</p></div>
+    <div class="panel"><h2>Trend &amp; forecast <em>24 h actual · 24 h forecast</em></h2>
+      <svg class="chart" id="forecast" role="img" aria-label="Attacks per hour with expected band and forecast"></svg><p class="trend-note" id="trend-note"></p></div>
+    <div class="panel"><h2>Campaigns <em>24 h · click = events</em></h2><ul class="camps" id="campaigns"><li class="empty">Loading …</li></ul></div>
+    <div class="panel related-panel"><h2>In the news <em>current reports matching observed attacks · heise · BleepingComputer · BSI · CISA KEV · Mastodon</em></h2>
+      <div class="related" id="related"><p class="empty">Loading …</p></div></div>
   </section>
 
   <section class="main">
     <div class="stack">
-      <div class="panel"><h2>Angriffsarten <em>Klick = Vorgänge</em></h2><ul class="bars" id="types"></ul></div>
-      <div class="panel"><h2>Top-Länder</h2><ul class="bars" id="countries"></ul></div>
-      <div class="panel"><h2>Top-Netze (ASN)</h2><ul class="bars" id="asns"></ul></div>
+      <div class="panel"><h2>Attack types <em>click = events</em></h2><ul class="bars" id="types"></ul></div>
+      <div class="panel"><h2>Top countries</h2><ul class="bars" id="countries"></ul></div>
+      <div class="panel"><h2>Top networks (ASN)</h2><ul class="bars" id="asns"></ul></div>
     </div>
 
     <div class="panel globe-panel">
-      <div id="globe" aria-label="3D-Globus mit Angriffsherkunft"></div>
-      <div class="globe-title">ANGRIFFSHERKUNFT → SENSOREN<span id="server-loc"></span><span>Farbe: Angriffe je Land · Säulen: Herde · Bögen: jüngste Angriffe · ◉ Sensor-Standorte</span><span>Hover = Details · Klick = Land/Angriff · Ziehen/Scrollen = drehen/zoomen</span></div>
-      <div class="globe-tools" role="toolbar" aria-label="Globus-Ansicht">
-        <button data-globe="rotate" aria-pressed="true" title="Automatische Drehung">⟳ Drehen</button>
-        <button data-globe="shade" aria-pressed="true" title="Länder nach Angriffen färben">◐ Länder</button>
-        <button data-globe="points" aria-pressed="true" title="Säulen der Angriffsherde">▮ Säulen</button>
-        <button data-globe="arcs" aria-pressed="true" title="Bögen der Live-Angriffe">⌒ Bögen</button>
-        <button data-globe="reset" title="Ansicht zurücksetzen">◎ Zentrieren</button>
+      <div id="globe" aria-label="3D globe showing attack origins"></div>
+      <div class="globe-title">ATTACK ORIGIN → SENSORS<span id="server-loc"></span><span>Color: attacks per country · bars: hotspots · arcs: latest attacks · ◉ sensor locations</span><span>Hover = details · click = country/attack · drag/scroll = rotate/zoom</span></div>
+      <div class="globe-tools" role="toolbar" aria-label="Globe view">
+        <button data-globe="rotate" aria-pressed="true" title="Auto-rotate">⟳ Rotate</button>
+        <button data-globe="shade" aria-pressed="true" title="Color countries by attacks">◐ Countries</button>
+        <button data-globe="points" aria-pressed="true" title="Bars for attack hotspots">▮ Bars</button>
+        <button data-globe="arcs" aria-pressed="true" title="Arcs of live attacks">⌒ Arcs</button>
+        <button data-globe="reset" title="Reset view">◎ Center</button>
       </div>
       <div class="globe-overlay">
         <div class="legend" id="legend"></div>
@@ -74,35 +74,35 @@
 
     <div class="panel feed-col">
       <h2>Live-Feed <em id="feed-count"></em></h2>
-      <ul class="feed" id="feed"><li class="empty">Warte auf Daten …</li></ul>
+      <ul class="feed" id="feed"><li class="empty">Waiting for data …</li></ul>
     </div>
   </section>
 
   <section class="lower">
-    <div class="panel"><h2>Zeitverlauf <em id="tl-sub"></em></h2><svg class="chart" id="timeline" role="img" aria-label="Angriffe im Zeitverlauf nach Art"></svg></div>
-    <div class="panel"><h2>Wochenmuster <em>7 Tage · Wochentag × Stunde</em></h2><svg class="heat" id="heatmap" role="img" aria-label="Heatmap Angriffe nach Wochentag und Stunde"></svg></div>
+    <div class="panel"><h2>Timeline <em id="tl-sub"></em></h2><svg class="chart" id="timeline" role="img" aria-label="Attacks over time by type"></svg></div>
+    <div class="panel"><h2>Weekly pattern <em>7 days · weekday × hour</em></h2><svg class="heat" id="heatmap" role="img" aria-label="Heatmap of attacks by weekday and hour"></svg></div>
   </section>
 
   <section class="quad">
-    <div class="panel"><h2>Gescannte Ports</h2><ul class="bars mono" id="ports"></ul></div>
-    <div class="panel"><h2>Login-Benutzernamen <small>SSH · FTP · Telnet · MySQL · Postgres</small></h2><ul class="bars mono" id="users"></ul></div>
-    <div class="panel"><h2>Passwörter <small>SSH · FTP · Telnet · Postgres</small></h2><ul class="bars mono" id="passwords"></ul></div>
-    <div class="panel"><h2>Befehle <small>SSH · Telnet · SQL</small></h2><ul class="bars mono" id="commands"></ul></div>
-    <div class="panel"><h2>Gesuchte Pfade</h2><ul class="bars mono" id="paths"></ul></div>
-    <div class="panel"><h2>Malware-Samples <small>Uploads &amp; Downloads der Bots</small></h2><ul class="bars mono" id="samples"></ul>
-      <h2 class="sub">fail2ban-Jails <small>nur 3lis.de</small></h2><ul class="bars mono" id="jails"></ul></div>
+    <div class="panel"><h2>Scanned ports</h2><ul class="bars mono" id="ports"></ul></div>
+    <div class="panel"><h2>Login usernames <small>SSH · FTP · Telnet · MySQL · Postgres</small></h2><ul class="bars mono" id="users"></ul></div>
+    <div class="panel"><h2>Passwords <small>SSH · FTP · Telnet · Postgres</small></h2><ul class="bars mono" id="passwords"></ul></div>
+    <div class="panel"><h2>Commands <small>SSH · Telnet · SQL</small></h2><ul class="bars mono" id="commands"></ul></div>
+    <div class="panel"><h2>Probed paths</h2><ul class="bars mono" id="paths"></ul></div>
+    <div class="panel"><h2>Malware-Samples <small>bot uploads &amp; downloads</small></h2><ul class="bars mono" id="samples"></ul>
+      <h2 class="sub">fail2ban-Jails <small>3lis.de only</small></h2><ul class="bars mono" id="jails"></ul></div>
   </section>
 </main>
 
 <div class="tip" id="tip"></div>
 
 <footer class="footer">
-  <span>Quellen: portsentry · sshd · nginx · fail2ban · Honeypots (SSH, FTP, Telnet, MySQL, Postgres, PHP) auf 3lis.de und den Außensensoren. Malware-Samples werden nur per Hash gezeigt, nie ausgeliefert. IP-Adressen werden gekürzt angezeigt (letztes Oktett = x). Geodaten: ip-api.com.</span>
-  <span><a href="/impressum.html">Impressum</a> · <a href="/datenschutz.html">Datenschutz</a></span>
+  <span>Sources: portsentry · sshd · nginx · fail2ban · honeypots (SSH, FTP, Telnet, MySQL, Postgres, PHP) on 3lis.de and the remote sensors. Malware samples are only shown by hash, never served. IP addresses are truncated (last octet = x). Geo data: ip-api.com.</span>
+  <span><a href="/impressum.html" hreflang="de">Impressum (legal notice)</a> · <a href="/datenschutz.html" hreflang="de">Datenschutz (privacy policy)</a></span>
 </footer>
 
 <aside class="drawer" id="drawer" aria-label="Details">
-  <header><button id="drawer-back" hidden aria-label="Zurück">←</button><h2 id="drawer-title"></h2><button id="drawer-close" aria-label="Schließen">✕</button></header>
+  <header><button id="drawer-back" hidden aria-label="Back">←</button><h2 id="drawer-title"></h2><button id="drawer-close" aria-label="Close">✕</button></header>
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
 <script src="/assets/vendor/globe.gl.min.js"></script>

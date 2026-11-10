@@ -67,7 +67,7 @@ class Handler(BaseHTTPRequestHandler):
         page = url.path.rsplit("/", 1)[-1].lower()
         if page == "wp-login.php" and self.command == "POST":
             form = parse_qs(body)
-            self.pot.record(ip, "high", attempt(form.get("log", [""])[0], "Passwort", form.get("pwd", [""])[0]))
+            self.pot.record(ip, "high", attempt(form.get("log", [""])[0], "password", form.get("pwd", [""])[0]))
             return self.reply(LOGIN_PAGE.format(error=LOGIN_ERROR))
         payload = " ".join(p for p in (unquote_plus(url.query), unquote_plus(body)) if p)
         if payload:

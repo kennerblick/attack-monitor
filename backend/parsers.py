@@ -65,11 +65,11 @@ def parse_nginx_error(line):
     stamp, ip = m.groups()
     ts = datetime.strptime(stamp, "%Y/%m/%d %H:%M:%S").timestamp()
     if "limiting requests" in line:
-        return event(ts, ip, "Rate-Limit", "med", "nginx", 443, "Request-Limit überschritten")
+        return event(ts, ip, "Rate-Limit", "med", "nginx", 443, "Request limit exceeded")
     if "SSL_do_handshake" in line:
         reason = re.search(r'routines::([^)]+)\)', line)
         return event(ts, ip, "SSL-Scan", "low", "nginx", 443,
-                     f"TLS-Handshake: {reason.group(1) if reason else 'fehlgeschlagen'}")
+                     f"TLS handshake: {reason.group(1) if reason else 'failed'}")
     return None
 
 
@@ -90,7 +90,7 @@ def parse_auth(line, now=None):
         return None
     user, ip = m.groups()
     return event(syslog_ts(ts.group(1), now), ip, "SSH-Brute", "high", "sshd",
-                 SSH_PORT, f"Login-Versuch als „{user or '(leer)'}“")
+                 SSH_PORT, f"Login attempt as “{user or '(empty)'}”")
 
 
 def parse_f2b(line):
@@ -100,7 +100,7 @@ def parse_f2b(line):
         return None
     stamp, jail, ip = m.groups()
     ts = datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S").timestamp()
-    return event(ts, ip, "fail2ban-Ban", "med", "fail2ban", None, f"Gebannt durch Jail {jail}", jail)
+    return event(ts, ip, "fail2ban-Ban", "med", "fail2ban", None, f"Banned by jail {jail}", jail)
 
 
 PARSERS = {

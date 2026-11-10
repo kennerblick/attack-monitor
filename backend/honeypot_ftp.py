@@ -29,7 +29,7 @@ class FTPHoneypot(Honeypot):
                     user = arg
                     sock.sendall(b"331 Please specify the password.\r\n")
                 elif cmd == "PASS":
-                    login(attempt(user, "Passwort", arg))
+                    login(attempt(user, "password", arg))
                     sock.sendall(b"530 Login incorrect.\r\n")
                 else:
                     sock.sendall(b"530 Please login with USER and PASS.\r\n")

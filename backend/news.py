@@ -33,27 +33,27 @@ PER_TOPIC = 3
 
 # (Schlüssel, Anzeige, Bedingung auf events, Muster für Titel/Text der Meldungen)
 TOPICS = [
-    ("wordpress", "WordPress-Logins & -Plugins", "detail LIKE '%wp-login%' OR detail LIKE '%xmlrpc.php%' OR detail LIKE '%wp-admin%' "
+    ("wordpress", "WordPress logins & plugins", "detail LIKE '%wp-login%' OR detail LIKE '%xmlrpc.php%' OR detail LIKE '%wp-admin%' "
      "OR detail LIKE '%wp-content%'", r"\bwordpress\b|\bwp-"),
-    ("secrets", "Suche nach .env, Cloud- und Git-Zugangsdaten", "detail LIKE '%/.env%' OR detail LIKE '%/.aws/%' "
+    ("secrets", "Hunting .env, cloud and Git credentials", "detail LIKE '%/.env%' OR detail LIKE '%/.aws/%' "
      "OR detail LIKE '%.git-credentials%' OR detail LIKE '%/.docker/config%'",
      r"\.env\b|exposed (credentials|secrets)|secrets? (leak|expos)|leaked (credentials|secrets|api keys?)|credential theft"),
-    ("git", "Offene .git-Verzeichnisse", "detail LIKE '%/.git/%'", r"exposed \.?git\b|\.git director|git repositor"),
+    ("git", "Exposed .git directories", "detail LIKE '%/.git/%'", r"exposed \.?git\b|\.git director|git repositor"),
     ("spring", "Spring Boot Actuator", "detail LIKE '%/actuator%'", r"\bspring( boot| framework)?\b|actuator"),
-    ("phpunit", "PHPUnit-RCE", "detail LIKE '%phpunit%'", r"phpunit"),
-    ("php", "PHP-Angriffe", "type='PHP-Probe' OR detail LIKE '%php-cgi%'", r"\bphp\b"),
-    ("mysql-ransom", "Datenbank-Erpressung", "detail LIKE '%RECOVER_YOUR_DATA%' OR detail LIKE '%README_TO_RECOVER%' "
+    ("phpunit", "PHPUnit RCE", "detail LIKE '%phpunit%'", r"phpunit"),
+    ("php", "PHP attacks", "type='PHP-Probe' OR detail LIKE '%php-cgi%'", r"\bphp\b"),
+    ("mysql-ransom", "Database extortion", "detail LIKE '%RECOVER_YOUR_DATA%' OR detail LIKE '%README_TO_RECOVER%' "
      "OR detail LIKE '%PLEASE_READ%'", r"(mysql|mariadb|mongodb|postgres\w*|elasticsearch)\b.{0,60}(ransom|extort|wip)|(ransom|extort)\w*\b.{0,60}(mysql|mariadb|mongodb|postgres|elasticsearch)"),
     ("mysql", "MySQL/MariaDB", "type='MySQL-Probe'", r"\bmysql\b|\bmariadb\b"),
     ("postgres", "PostgreSQL", "type='Postgres-Probe'", r"\bpostgres(ql)?\b"),
-    ("ssh", "SSH-Brute-Force", "type IN ('SSH-Probe','SSH-Brute')", r"\bssh\b|openssh"),
-    ("iot", "IoT-Botnetze (Telnet, Mirai)", "type='Telnet-Probe' OR detail LIKE '%mirai%' OR detail LIKE '%busybox%'",
+    ("ssh", "SSH brute force", "type IN ('SSH-Probe','SSH-Brute')", r"\bssh\b|openssh"),
+    ("iot", "IoT botnets (Telnet, Mirai)", "type='Telnet-Probe' OR detail LIKE '%mirai%' OR detail LIKE '%busybox%'",
      r"\bmirai\b|\bbotnet|\biot\b|\btelnet\b"),
-    ("miner", "Krypto-Miner", "detail LIKE '%xmrig%' OR detail LIKE '%minerd%' OR detail LIKE '%stratum+tcp%' "
+    ("miner", "Crypto miners", "detail LIKE '%xmrig%' OR detail LIKE '%minerd%' OR detail LIKE '%stratum+tcp%' "
      "OR detail LIKE '%c3pool%'", r"xmrig|crypto ?min|cryptojack|\bmonero\b"),
-    ("router", "Router & Embedded-Geräte", "detail LIKE '%boaform%' OR detail LIKE '%GponForm%' OR detail LIKE '%HNAP1%' "
+    ("router", "Routers & embedded devices", "detail LIKE '%boaform%' OR detail LIKE '%GponForm%' OR detail LIKE '%HNAP1%' "
      "OR detail LIKE '%/cgi-bin/%' OR detail LIKE '%/goform/%'", r"\brouter|d-link|tp-link|zyxel|\bgpon\b|netgear|draytek|four-faith"),
-    ("vpn", "VPN- und Edge-Gateways", "detail LIKE '%/remote/%' OR detail LIKE '%/dana-na/%' OR detail LIKE '%global-protect%' "
+    ("vpn", "VPN and edge gateways", "detail LIKE '%/remote/%' OR detail LIKE '%/dana-na/%' OR detail LIKE '%global-protect%' "
      "OR detail LIKE '%/+CSCOE+%' OR detail LIKE '%/vpn/%'", r"fortinet|fortigate|fortios|ivanti|palo alto|globalprotect|"
      r"citrix|netscaler|cisco asa|sonicwall"),
     ("rdp", "RDP & VNC", "type='Port-Scan' AND port IN (3389, 5900)", r"\brdp\b|remote desktop|\bvnc\b"),

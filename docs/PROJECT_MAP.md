@@ -21,7 +21,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `intel.py` | IP-Profil: rDNS mit Timeout, Einstufung (bekannte Scanner/Clouds/VPN, hosting/mobile), Einschätzung |
 | `tail.py` | Logs fortlaufend lesen, 7-Tage-Seed beim ersten Start, stündliches Prune |
 | `parsers.py` | ein Parser je Quelle → Event-Dict (Zeitstempel aus der Logzeile) |
-| `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
+| `store.py` | SQLite-Schema (+ Spalten-Migration, `user_version` 1 = Event-Texte englisch; `modernize()` übersetzt Altformat auch beim Einfügen), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
 | `trends.py` | Stundenzählung, Erwartung je Tagesstunde (Median/MAD), 24-h-Prognose, Spitzen |
 | `campaigns.py` | Kampagnen (gleiche Befehlsfolge/Passwortliste über ≥ 3 IPs) und ASN-Wellen, stabiler Schlüssel je Fingerabdruck |
 | `llm.py` | SSH-Aufruf des LLM-Proxys (`Busy` bei Rendering), Ausgabefilter `clean()` |
@@ -37,7 +37,7 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `honeypot_ssh.py` | SSH :22 via paramiko (Schlüssel abgelehnt, Passwort angenommen → Fake-Shell/Exec, nur Session-Kanäle; Uploads per `scp -t` und `cat >`) → `SSH-Probe` |
 | `honeypot_telnet.py` | Telnet :23 (Router-Login, IAC filtern, jede Anmeldung → Fake-Shell) → `Telnet-Probe` |
 | `honeypot_php.py` | PHP hinter nginx (127.0.0.1:8098, X-Real-IP): PHP 8.2.34 vortäuschen, WordPress-Login und Payloads mitschneiden → `PHP-Probe` |
-| `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event „Befehl „…““ (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
+| `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event `Command “…”` (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
 | `test_backend.py`, `test_insights.py` | Unit-Tests (`python3 -m unittest`) |
@@ -60,7 +60,7 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sen
 | `assets/js/sensors.js` | Sensoren: feste Farbe je Sensor, Plakette (Feed, Toast, Detail, Globus-Titel) |
 | `assets/js/drawer.js` | Schublade: Vorgangslisten, Event + IP-Profil, Land; mit Zurück-Verlauf |
 | `assets/js/charts.js` | SVG-Zeitleiste (gestapelt), Heatmap und Trend/Prognose mit Tooltips |
-| `assets/js/insights.js` | Lagebild: Lagebericht, Trend-Hinweis, Kampagnen-Karten (Klick = Vorgänge 24 h), „Passt zu“; `sessionBlock()` fürs IP-Profil |
+| `assets/js/insights.js` | Lagebild: Lagebericht, Trend-Hinweis, Kampagnen-Karten (Klick = Vorgänge 24 h), „In the news“; `sessionBlock()` fürs IP-Profil |
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |
 | `assets/vendor/` | globe.gl 2.46.2, topojson-client 3.1.0, world-atlas 2.0.2, @strudel/web 1.3.0 (+ clockworker) |
 | `strudel/` | Groove Machine: `genres/` (je Genre 12 Spuren + Varianten/Subgenres, `index.js`), `code.js` (Code-Generator: Anzeige mit festen Werten, gespielt mit `grooveFx`), `fx.js` (Echtzeit-FX über `withValue`/`ref`: DJ-Filter, Regler, Halte-Effekte), `live.js` (Live-Code-Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`), `samples.js` (eigene Samples: Dateien in IndexedDB, Bank-URLs in localStorage, Spur „Eigene Samples“) |

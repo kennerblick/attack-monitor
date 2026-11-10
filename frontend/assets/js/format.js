@@ -3,7 +3,7 @@
 export const TYPES = [
   { key: "Port-Scan", label: "Port-Scan", color: "#3987e5" },
   { key: "Web-Probe", label: "Web-Probe", color: "#d95926" },
-  { key: "SSH-Brute", label: "SSH-Brute-Force", color: "#199e70" },
+  { key: "SSH-Brute", label: "SSH brute force", color: "#199e70" },
   { key: "fail2ban-Ban", label: "fail2ban-Ban", color: "#c98500" },
   { key: "SQLi/RCE", label: "SQLi / RCE", color: "#d55181" },
   { key: "Rate-Limit", label: "Rate-Limit", color: "#008300" },
@@ -14,14 +14,14 @@ export const TYPES = [
   { key: "Telnet-Probe", label: "Telnet-Honeypot", color: "#8aa0b8" },
   { key: "Postgres-Probe", label: "Postgres-Honeypot", color: "#4fb3bf" },
   { key: "PHP-Probe", label: "PHP-Honeypot", color: "#b86fd6" },
-  { key: "Malware-Sample", label: "Malware-Sample", color: "#f2e85c" },
+  { key: "Malware-Sample", label: "Malware sample", color: "#f2e85c" },
 ];
 const BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
 export const typeInfo = key => BY_KEY[key] || { key, label: key, color: "#6b7894" };
 
-export const SEVERITY = { crit: "kritisch", high: "hoch", med: "mittel", low: "niedrig" };
+export const SEVERITY = { crit: "critical", high: "high", med: "medium", low: "low" };
 
-const nf = new Intl.NumberFormat("de-DE");
+const nf = new Intl.NumberFormat("en-GB");
 export const num = n => (n == null ? "–" : nf.format(n));
 
 export function flag(cc) {
@@ -29,8 +29,8 @@ export function flag(cc) {
   return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1f1a5 + c.charCodeAt(0)));
 }
 
-export const time = ts => new Date(ts * 1000).toLocaleTimeString("de-DE");
-export const dateTime = ts => new Date(ts * 1000).toLocaleString("de-DE");
+export const time = ts => new Date(ts * 1000).toLocaleTimeString("en-GB");
+export const dateTime = ts => new Date(ts * 1000).toLocaleString("en-GB");
 
 export function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

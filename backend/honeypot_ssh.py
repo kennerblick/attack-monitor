@@ -53,11 +53,11 @@ class _Server(paramiko.ServerInterface):
         return "publickey,password"
 
     def check_auth_password(self, username, password):
-        self.login(attempt(username, "Passwort", password))
+        self.login(attempt(username, "password", password))
         return paramiko.AUTH_SUCCESSFUL
 
     def check_auth_publickey(self, username, key):
-        self.login(f"{attempt(username)} · Schlüssel {key.get_name()} {fingerprint(key)}")
+        self.login(f"{attempt(username)} · key {key.get_name()} {fingerprint(key)}")
         return paramiko.AUTH_FAILED
 
     def check_channel_request(self, kind, chanid):

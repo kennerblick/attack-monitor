@@ -4,6 +4,7 @@ MySQL/Postgres: feste Antworten); Downloads und hochgeladene Dateien landen nur 
 
 Nur IPv4, weil die API-Kürzung (/24) nur IPv4 kennt.
 """
+import re
 import socket
 import threading
 import time
@@ -15,22 +16,22 @@ from parsers import event
 TIMEOUT = 5
 MAX_CONN = 50
 PER_IP_PER_MIN = 30  # Flut einer einzelnen IP nicht vollständig speichern
-NO_LOGIN = "Verbindung ohne Login (Server-Erkennung)"
+NO_LOGIN = "Connection without login (service detection)"
 SAMPLE_TYPE = "Malware-Sample"
 
 
 def clean(value, limit=40):
-    """Angreifer-Text für Detail und Top-Listen: „“ sind dort Trennzeichen, Länge begrenzt."""
+    """Angreifer-Text für Detail und Top-Listen: “” sind dort Trennzeichen (und „ aus dem Altformat), Länge begrenzt."""
     if isinstance(value, bytes):
         value = value.decode("utf-8", "replace")
-    value = (value or "").replace("„", '"').replace("“", '"')
+    value = re.sub("[„“”]", '"', value or "")
     return "".join(c if c.isprintable() else "?" for c in value)[:limit] or None
 
 
 def attempt(user, label=None, value=None):
-    """Detailtext "Login-Versuch als „user“ · Label „value“"; store.py liest Benutzer und Passwort daraus."""
-    text = f"Login-Versuch als „{clean(user) or '(leer)'}“"
-    return text + (f" · {label} „{clean(value) or '(leer)'}“" if label else "")
+    """Detailtext "Login attempt as “user” · label “value”"; store.py liest Benutzer und Passwort daraus."""
+    text = f"Login attempt as “{clean(user) or '(empty)'}”"
+    return text + (f" · {label} “{clean(value) or '(empty)'}”" if label else "")
 
 
 class Honeypot:
@@ -56,14 +57,14 @@ class Honeypot:
 
     def command(self, ip, line):
         """Befehl aus der Fake-Shell; store.py liest ihn aus dem Detail."""
-        self.record(ip, "crit", f"Befehl „{clean(line, 100)}“")
+        self.record(ip, "crit", f"Command “{clean(line, 100)}”")
 
     def sample(self, ip, data, source):
         """Datei eines Angreifers ablegen (samples.py). Das Event umgeht die Flutbremse: Samples sind selten,
         aber genau das, was wir sammeln wollen. store.py liest den Hash aus dem Detail."""
         digest, stored = samples.save(data)
-        detail = (f"Sample „{digest}“ · {len(data)} B · {samples.kind(data)} · {clean(source, 100)}"
-                  + ("" if stored else " · nicht gespeichert (Speicher voll)"))
+        detail = (f"Sample “{digest}” · {len(data)} B · {samples.kind(data)} · {clean(source, 100)}"
+                  + ("" if stored else " · not stored (storage full)"))
         self.store.add_events([event(time.time(), ip, SAMPLE_TYPE, "crit", "honeypot", self.PORT, detail)])
 
     def fetch(self, ip, url):

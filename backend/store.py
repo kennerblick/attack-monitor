@@ -26,6 +26,31 @@ CREATE TABLE IF NOT EXISTS insights (
 """
 
 EVENT_COLUMNS = ("ts", "ip", "type", "sev", "src", "port", "detail", "jail", "sensor")
+
+# Deutsches Detail-Format bis 2026-11-10 -> Englisch. Gilt für Altdaten (einmalige Migration, user_version 1) und für
+# Events von Außensensoren, die noch alten Code fahren. „ kommt im neuen Format nicht vor (honeypot.clean).
+LEGACY_TEXT = (
+    ("Login-Versuch als „", "Login attempt as „"), ("· Passwort „", "· password „"), ("· Schlüssel ", "· key "),
+    ("„(leer)“", "„(empty)“"), ("Befehl „", "Command „"),
+    ("Verbindung ohne Login (Server-Erkennung)", "Connection without login (service detection)"),
+    (" · nicht gespeichert (Speicher voll)", " · not stored (storage full)"),
+    (" · Skript · ", " · script · "), (" · Daten · ", " · data · "), ("Request-Limit überschritten", "Request limit exceeded"),
+    ("TLS-Handshake: fehlgeschlagen", "TLS handshake: failed"), ("TLS-Handshake: ", "TLS handshake: "),
+    ("Gebannt durch Jail ", "Banned by jail "),
+)
+# „x“ -> “x”; ein ” im Angreifer-Text wird vorher zu ", damit es nicht als Trennzeichen gilt
+LEGACY_QUOTES = (("”", '"'), ("“", "”"), ("„", "“"))
+
+
+def modernize(detail):
+    if not detail:
+        return detail
+    for old, new in LEGACY_TEXT:
+        detail = detail.replace(old, new)
+    if "„" in detail:
+        for old, new in LEGACY_QUOTES:
+            detail = detail.replace(old, new)
+    return detail
 FEED_COLUMNS = ("id",) + EVENT_COLUMNS + ("lat", "lon", "cc", "country", "city", "isp", "asn")
 FEED_SELECT = (f"SELECT e.{', e.'.join(FEED_COLUMNS[:10])}, g.lat, g.lon, g.cc, g.country, g.city, g.isp, g.asn "
                "FROM events e LEFT JOIN geo g ON g.ip=e.ip ")
@@ -33,32 +58,32 @@ LOCAL_SENSOR = "3lis"  # sensor=NULL: Event von 3lis.de selbst; sonst Name des A
 SENSOR = f"COALESCE(e.sensor,'{LOCAL_SENSOR}')"
 GEO_EXTRA = ("org", "hosting", "proxy", "mobile")  # später ergänzte Spalten -> Migration in __init__
 
-# Login-Versuche (sshd und Honeypots), Detail jeweils "Login-Versuch als „name“ …" (honeypot.attempt)
+# Login-Versuche (sshd und Honeypots), Detail jeweils "Login attempt as “name” …" (honeypot.attempt)
 LOGIN_TYPES = "('SSH-Brute','MySQL-Probe','SSH-Probe','FTP-Probe','Telnet-Probe','Postgres-Probe','PHP-Probe')"
-LOGINS = f"type IN {LOGIN_TYPES} AND detail LIKE 'Login-Versuch als „%'"
-LOGIN_USER = "substr(detail, instr(detail, '„') + 1, instr(detail, '“') - instr(detail, '„') - 1)"
-# SSH-/FTP-/Telnet-/Postgres-/PHP-Honeypot hängen " · Passwort „pw“" als letzten Teil an; 12 = len('· Passwort „')
-PASSWORDS = "type IN ('SSH-Probe','FTP-Probe','Telnet-Probe','Postgres-Probe','PHP-Probe') AND detail LIKE '%· Passwort „%'"
-LOGIN_PW = "substr(detail, instr(detail, '· Passwort „') + 12, length(detail) - instr(detail, '· Passwort „') - 12)"
-# Fake-Shell von SSH-/Telnet-Honeypot, SQL der Datenbank-Honeypots und PHP-Payloads: Detail "Befehl „…“" (Honeypot.command); 8 = len('Befehl „')
-COMMANDS = "type IN ('SSH-Probe','Telnet-Probe','MySQL-Probe','Postgres-Probe','PHP-Probe') AND detail LIKE 'Befehl „%'"
-COMMAND = "substr(detail, 9, length(detail) - 9)"
-# Malware-Samples (Honeypot.sample): Detail "Sample „sha256“ · Größe · Art · Quelle"
+LOGINS = f"type IN {LOGIN_TYPES} AND detail LIKE 'Login attempt as “%'"
+LOGIN_USER = "substr(detail, instr(detail, '“') + 1, instr(detail, '”') - instr(detail, '“') - 1)"
+# SSH-/FTP-/Telnet-/Postgres-/PHP-Honeypot hängen " · password “pw”" als letzten Teil an; 12 = len('· password “')
+PASSWORDS = "type IN ('SSH-Probe','FTP-Probe','Telnet-Probe','Postgres-Probe','PHP-Probe') AND detail LIKE '%· password “%'"
+LOGIN_PW = "substr(detail, instr(detail, '· password “') + 12, length(detail) - instr(detail, '· password “') - 12)"
+# Fake-Shell von SSH-/Telnet-Honeypot, SQL der Datenbank-Honeypots und PHP-Payloads: Detail "Command “…”" (Honeypot.command); 9 = len('Command “')
+COMMANDS = "type IN ('SSH-Probe','Telnet-Probe','MySQL-Probe','Postgres-Probe','PHP-Probe') AND detail LIKE 'Command “%'"
+COMMAND = "substr(detail, 10, length(detail) - 10)"
+# Malware-Samples (Honeypot.sample): Detail "Sample “sha256” · Größe · Art · Quelle"
 SAMPLES = "type='Malware-Sample'"
-SAMPLE_HASH = "substr(detail, 9, 64)"  # 8 = len('Sample „')
+SAMPLE_HASH = "substr(detail, 9, 64)"  # 8 = len('Sample “')
 
 # Drilldown aus den Top-Listen: Art -> WHERE-Bedingung (Werte immer als Parameter)
 FILTERS = {
     "type": "e.type=?", "cc": "g.cc=?", "asn": "g.asn=?", "jail": "e.jail=?",
     "port": "e.type='Port-Scan' AND e.port=?",
-    "user": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE 'Login-Versuch als „' || ? || '“%'",
+    "user": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE 'Login attempt as “' || ? || '”%'",
     "login": f"e.type IN {LOGIN_TYPES} AND e.detail LIKE ? || '%'",
     "password": f"{PASSWORDS} AND {LOGIN_PW}=?",
     "command": f"{COMMANDS} AND {COMMAND}=?",
     "command_like": f"{COMMANDS} AND {COMMAND} LIKE ? ESCAPE '\\'",
     "path": "e.type IN ('Web-Probe','SQLi/RCE') AND e.detail LIKE ? || ' → %'",
     "sensor": f"{SENSOR}=?",
-    "sample": "e.type='Malware-Sample' AND e.detail LIKE 'Sample „' || ? || '“%'",
+    "sample": "e.type='Malware-Sample' AND e.detail LIKE 'Sample “' || ? || '”%'",
 }
 
 
@@ -74,7 +99,23 @@ class Store:
                 self.db.execute(f"ALTER TABLE geo ADD COLUMN {col} {'TEXT' if col == 'org' else 'INTEGER'}")
         if "sensor" not in {r[1] for r in self.db.execute("PRAGMA table_info(events)")}:
             self.db.execute("ALTER TABLE events ADD COLUMN sensor TEXT")
+        self._migrate_english()
         self.lock = threading.Lock()
+
+    def _migrate_english(self):
+        """Einmalig: Detail-Texte ins englische Format (siehe LEGACY_TEXT). IMMEDIATE, weil beide Prozesse starten."""
+        if self.db.execute("PRAGMA user_version").fetchone()[0] >= 1:
+            return
+        self.db.execute("BEGIN IMMEDIATE")
+        if self.db.execute("PRAGMA user_version").fetchone()[0] < 1:
+            for old, new in LEGACY_TEXT:
+                self.db.execute("UPDATE events SET detail=replace(detail, ?, ?) WHERE instr(detail, ?)", (old, new, old))
+            quoted = "detail"
+            for old, new in LEGACY_QUOTES:
+                quoted = f"replace({quoted}, '{old}', '{new}')"
+            self.db.execute(f"UPDATE events SET detail={quoted} WHERE instr(detail, '„')")
+            self.db.execute("PRAGMA user_version=1")
+        self.db.execute("COMMIT")
 
     def query(self, sql, args=()):
         with self.lock:
@@ -86,7 +127,7 @@ class Store:
     def add_events(self, events):
         if not events:
             return
-        rows = [tuple(e.get(c) for c in EVENT_COLUMNS) for e in events]
+        rows = [tuple(modernize(e.get(c)) if c == "detail" else e.get(c) for c in EVENT_COLUMNS) for e in events]
         with self.lock, self.db:
             self.db.executemany(
                 f"INSERT INTO events({','.join(EVENT_COLUMNS)}) VALUES ({','.join('?' * len(EVENT_COLUMNS))})", rows)

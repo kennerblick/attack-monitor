@@ -11,44 +11,44 @@ import time
 
 # (Muster in rDNS/ISP/Org, Name, Kategorie, Beschreibung)
 KNOWN = [
-    (r"censys", "Censys", "research", "Internet-weiter Scan-Dienst (Censys Search), sammelt Banner für Sicherheitsforschung"),
-    (r"shodan", "Shodan", "research", "Suchmaschine für vernetzte Geräte, scannt das gesamte Internet"),
-    (r"shadowserver", "Shadowserver", "research", "Gemeinnützige Stiftung, meldet verwundbare Systeme an CERTs/Provider"),
-    (r"binaryedge", "BinaryEdge", "research", "Kommerzieller Internet-Scanner (Coalition)"),
-    (r"stretchoid", "Stretchoid", "research", "Scan-Projekt, scannt aggressiv viele Ports"),
-    (r"internet-?census|internet-?measurement|driftnet", "Driftnet / internet-measurement.com", "research", "Internet-Vermessungsprojekt"),
-    (r"onyphe", "ONYPHE", "research", "Französische Cyber-Defense-Suchmaschine"),
-    (r"leakix", "LeakIX", "research", "Sucht offene Datenbanken und Fehlkonfigurationen"),
-    (r"criminalip|aispera", "Criminal IP", "research", "Threat-Intel-Suchmaschine (AI Spera)"),
-    (r"expanse|paloalto|palo alto", "Palo Alto Cortex Xpanse", "research", "Attack-Surface-Management, scannt im Kundenauftrag"),
-    (r"bitsight", "BitSight", "research", "Security-Rating, bewertet Angriffsflächen von Firmen"),
-    (r"rapid7|sonar", "Rapid7 Project Sonar", "research", "Internet-weite Scan-Studien von Rapid7"),
+    (r"censys", "Censys", "research", "Internet-wide scan service (Censys Search), collects banners for security research"),
+    (r"shodan", "Shodan", "research", "Search engine for connected devices, scans the entire internet"),
+    (r"shadowserver", "Shadowserver", "research", "Non-profit foundation, reports vulnerable systems to CERTs/providers"),
+    (r"binaryedge", "BinaryEdge", "research", "Commercial internet scanner (Coalition)"),
+    (r"stretchoid", "Stretchoid", "research", "Scan project, aggressively scans many ports"),
+    (r"internet-?census|internet-?measurement|driftnet", "Driftnet / internet-measurement.com", "research", "Internet measurement project"),
+    (r"onyphe", "ONYPHE", "research", "French cyber-defense search engine"),
+    (r"leakix", "LeakIX", "research", "Searches for open databases and misconfigurations"),
+    (r"criminalip|aispera", "Criminal IP", "research", "Threat-intel search engine (AI Spera)"),
+    (r"expanse|paloalto|palo alto", "Palo Alto Cortex Xpanse", "research", "Attack surface management, scans on behalf of customers"),
+    (r"bitsight", "BitSight", "research", "Security rating, assesses companies' attack surfaces"),
+    (r"rapid7|sonar", "Rapid7 Project Sonar", "research", "Internet-wide scan studies by Rapid7"),
     (r"modat", "Modat", "research", "Internet-Scanner / Device-Search"),
-    (r"alphastrike|alpha strike", "Alpha Strike Labs", "research", "Security-Forschung, Internet-Scans"),
-    (r"recyber", "ReCyber", "research", "Internet-Scan-Projekt"),
-    (r"netcraft", "Netcraft", "research", "Web-Survey und Phishing-Erkennung"),
-    (r"securitytrails|recorded ?future", "Recorded Future / SecurityTrails", "research", "Threat-Intel-Anbieter"),
-    (r"cyber ?resilience|cyberresilience", "Cyber Resilience Scan", "research", "Forschungs-Scanner"),
+    (r"alphastrike|alpha strike", "Alpha Strike Labs", "research", "Security research, internet scans"),
+    (r"recyber", "ReCyber", "research", "Internet scan project"),
+    (r"netcraft", "Netcraft", "research", "Web survey and phishing detection"),
+    (r"securitytrails|recorded ?future", "Recorded Future / SecurityTrails", "research", "Threat-intel provider"),
+    (r"cyber ?resilience|cyberresilience", "Cyber Resilience Scan", "research", "Research scanner"),
     # Kunden-VMs der Konzern-Clouds vor den Konzernen selbst prüfen: das sind gemietete Server
-    (r"googleusercontent|google ?cloud", "Google Cloud", "cloud", "Gemietete VM in der Google Cloud – nicht Google selbst"),
-    (r"azure|cloudapp\.net", "Microsoft Azure", "cloud", "Gemietete VM in Azure – nicht Microsoft selbst"),
-    (r"googlebot|1e100\.net|google ?llc|google\.com", "Google", "search", "Google selbst (Crawler/Dienste)"),
-    (r"bingbot|search\.msn|microsoft", "Microsoft", "search", "Microsoft selbst (Bing-Crawler/Dienste)"),
-    (r"amazon|aws|ec2", "Amazon AWS", "cloud", "Cloud-Server bei Amazon, typ. gemietete VM"),
-    (r"digitalocean", "DigitalOcean", "cloud", "Cloud-VPS, häufig für Scanner und Bots genutzt"),
-    (r"ovh", "OVH", "cloud", "Hoster/Cloud (Frankreich)"),
-    (r"hetzner", "Hetzner", "cloud", "Hoster/Cloud (Deutschland)"),
+    (r"googleusercontent|google ?cloud", "Google Cloud", "cloud", "Rented VM in Google Cloud – not Google itself"),
+    (r"azure|cloudapp\.net", "Microsoft Azure", "cloud", "Rented VM in Azure – not Microsoft itself"),
+    (r"googlebot|1e100\.net|google ?llc|google\.com", "Google", "search", "Google itself (crawlers/services)"),
+    (r"bingbot|search\.msn|microsoft", "Microsoft", "search", "Microsoft itself (Bing crawler/services)"),
+    (r"amazon|aws|ec2", "Amazon AWS", "cloud", "Cloud server at Amazon, usually a rented VM"),
+    (r"digitalocean", "DigitalOcean", "cloud", "Cloud VPS, often used for scanners and bots"),
+    (r"ovh", "OVH", "cloud", "Hosting/cloud (France)"),
+    (r"hetzner", "Hetzner", "cloud", "Hosting/cloud (Germany)"),
     (r"linode|akamai", "Akamai / Linode", "cloud", "Cloud-VPS"),
     (r"vultr|choopa|constant", "Vultr", "cloud", "Cloud-VPS"),
-    (r"tencent", "Tencent Cloud", "cloud", "Chinesische Cloud"),
-    (r"alibaba|aliyun", "Alibaba Cloud", "cloud", "Chinesische Cloud"),
-    (r"huawei", "Huawei Cloud", "cloud", "Chinesische Cloud"),
-    (r"oracle", "Oracle Cloud", "cloud", "Cloud-Server bei Oracle"),
-    (r"m247|datacamp|cdn77", "M247 / Datacamp", "vpn", "Rechenzentren, häufig von VPN-Anbietern genutzt"),
-    (r"tor-?exit|torproject", "Tor-Exit", "vpn", "Ausgang des Tor-Anonymisierungsnetzes"),
+    (r"tencent", "Tencent Cloud", "cloud", "Chinese cloud"),
+    (r"alibaba|aliyun", "Alibaba Cloud", "cloud", "Chinese cloud"),
+    (r"huawei", "Huawei Cloud", "cloud", "Chinese cloud"),
+    (r"oracle", "Oracle Cloud", "cloud", "Cloud server at Oracle"),
+    (r"m247|datacamp|cdn77", "M247 / Datacamp", "vpn", "Data centers, often used by VPN providers"),
+    (r"tor-?exit|torproject", "Tor-Exit", "vpn", "Exit of the Tor anonymity network"),
 ]
-CATEGORY = {"research": "Bekannter Scan-Dienst", "search": "Suchmaschine/Konzern", "cloud": "Cloud/Hoster",
-            "vpn": "VPN/Anonymisierer", "residential": "Privatanschluss", "mobile": "Mobilfunk", "unknown": "Unbekannt"}
+CATEGORY = {"research": "Known scan service", "search": "Search engine/corporation", "cloud": "Cloud/hosting",
+            "vpn": "VPN/anonymizer", "residential": "Residential", "mobile": "Mobile network", "unknown": "Unknown"}
 
 _ptr_cache = {}
 _ptr_lock = threading.Lock()
@@ -104,42 +104,42 @@ def classify(host, isp, org, hosting, proxy, mobile):
         if re.search(pattern, hay):
             return {"name": name, "category": cat, "label": CATEGORY[cat], "desc": desc}
     if proxy:
-        return {"name": None, "category": "vpn", "label": CATEGORY["vpn"], "desc": "Laut ip-api Proxy, VPN oder Tor"}
+        return {"name": None, "category": "vpn", "label": CATEGORY["vpn"], "desc": "Proxy, VPN or Tor according to ip-api"}
     if mobile:
         return {"name": None, "category": "mobile", "label": CATEGORY["mobile"],
-                "desc": "Mobilfunknetz – oft infizierte Smartphones/Router (Botnetz)"}
+                "desc": "Mobile network – often infected smartphones/routers (botnet)"}
     if hosting:
         return {"name": None, "category": "cloud", "label": CATEGORY["cloud"],
-                "desc": "Rechenzentrum: gemieteter Server, typisch für Scanner, Bots oder kompromittierte VMs"}
+                "desc": "Data center: rented server, typical for scanners, bots or compromised VMs"}
     if hosting is False:
         return {"name": None, "category": "residential", "label": CATEGORY["residential"],
-                "desc": "Privat-/Firmenanschluss – meist ein infiziertes Gerät in einem Botnetz (z. B. Mirai)"}
-    return {"name": None, "category": "unknown", "label": CATEGORY["unknown"], "desc": "Noch keine Einstufung möglich"}
+                "desc": "Home/business line – usually an infected device in a botnet (e.g. Mirai)"}
+    return {"name": None, "category": "unknown", "label": CATEGORY["unknown"], "desc": "No classification yet"}
 
 
 def verdict(cls, profile):
     """Kurze, menschenlesbare Einschätzung aus Einstufung und Verhalten."""
     if cls["category"] in ("research", "search"):
-        return "Vermutlich harmlos: bekannter Dienst, der das Internet systematisch vermisst."
+        return "Probably harmless: a known service that systematically maps the internet."
     types = profile["types"]
     if types.get("SQLi/RCE"):
-        return "Gezielter Angriff: versucht Code-/SQL-Injection – eindeutig bösartig."
+        return "Targeted attack: attempts code/SQL injection – clearly malicious."
     if types.get("SSH-Brute", 0) >= 10:
-        return "Passwort-Raten auf SSH in Serie – typisches Botnetz-Verhalten."
+        return "Serial SSH password guessing – typical botnet behavior."
     if types.get("MySQL-Probe") or types.get("Postgres-Probe"):
-        return "Sucht offene Datenbanken: Kontakt mit dem MySQL-/Postgres-Honeypot auf Port 3306/5432."
+        return "Looking for open databases: contacted the MySQL/Postgres honeypot on port 3306/5432."
     if types.get("PHP-Probe"):
-        return "Greift PHP an: Exploit-/Webshell-Payloads oder WordPress-Logins am PHP-Honeypot."
+        return "Attacks PHP: exploit/webshell payloads or WordPress logins at the PHP honeypot."
     if types.get("Telnet-Probe"):
-        return "Telnet-Login mit Befehlen – typisch für Mirai-artige IoT-Botnetze."
+        return "Telnet login with commands – typical for Mirai-style IoT botnets."
     if types.get("SSH-Probe") or types.get("FTP-Probe"):
-        return "Probiert Zugangsdaten am SSH-/FTP-Honeypot (Port 22/21) – typisches Botnetz-Verhalten."
+        return "Tries credentials at the SSH/FTP honeypot (port 22/21) – typical botnet behavior."
     if any(port in (23, 2323) for port, _ in profile["ports"]):
-        return "Sucht Telnet (Port 23/2323) – typisch für Mirai-artige IoT-Botnetze."
+        return "Looking for Telnet (port 23/2323) – typical for Mirai-style IoT botnets."
     if profile["n"] >= 1000:
-        return f"Dauerbeschuss: {profile['n']} Vorgänge an {profile['days']} Tagen – automatisiert und hartnäckig."
+        return f"Sustained barrage: {profile['n']} events on {profile['days']} days – automated and persistent."
     if profile["days"] > 2:
-        return f"Wiederkehrender Absender: an {profile['days']} Tagen aktiv."
+        return f"Recurring sender: active on {profile['days']} days."
     if profile["n"] == 1:
-        return "Einzelner Kontakt – meist Massen-Scan, der zufällig vorbeikam."
-    return "Automatisierter Scanner/Bot ohne bekannte Zuordnung."
+        return "Single contact – usually a mass scan passing by."
+    return "Automated scanner/bot without known attribution."

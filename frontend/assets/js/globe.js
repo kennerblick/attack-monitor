@@ -20,21 +20,21 @@ function typeBreakdown(types) {
 
 function countryLabel(f, info) {
   const name = info?.country || f.properties.name;
-  if (!info) return `<div class="tt"><b>${flag(f.cc)} ${esc(name)}</b><small>keine Angriffe im Zeitfenster</small></div>`;
+  if (!info) return `<div class="tt"><b>${flag(f.cc)} ${esc(name)}</b><small>no attacks in time range</small></div>`;
   return `<div class="tt"><b>${flag(f.cc)} ${esc(name)}</b>` +
-    `<small>${num(info.n)} Angriffe · ${num(info.ips)} IPs · zuletzt ${time(info.last)}</small>${typeBreakdown(info.types)}` +
-    `<small class="tt-hint">Klick: Details</small></div>`;
+    `<small>${num(info.n)} attacks · ${num(info.ips)} IPs · last ${time(info.last)}</small>${typeBreakdown(info.types)}` +
+    `<small class="tt-hint">Click: details</small></div>`;
 }
 
-const pointLabel = p => `<div class="tt"><b>${flag(p.cc)} ${esc(p.city || p.cc || "unbekannt")}</b>` +
-  `<small>${num(p.n)} Angriffe · ${num(p.ips)} IPs · zuletzt ${time(p.last)}</small><small class="tt-hint">Klick: Land anzeigen</small></div>`;
+const pointLabel = p => `<div class="tt"><b>${flag(p.cc)} ${esc(p.city || p.cc || "unknown")}</b>` +
+  `<small>${num(p.n)} attacks · ${num(p.ips)} IPs · last ${time(p.last)}</small><small class="tt-hint">Click: show country</small></div>`;
 
 function arcLabel(a) {
   const ev = a.ev, t = typeInfo(ev.type);
   return `<div class="tt"><b style="color:${t.color}">${esc(t.label)}</b>` +
     `<small>${flag(ev.cc)} ${esc(ev.city || ev.country || "")} · ${esc(ev.ip)}</small>` +
     `<small>${esc(ev.isp || "")} ${esc(ev.asn || "")}</small><small>${time(ev.ts)} · ${esc(ev.detail)}</small>` +
-    `<small class="tt-hint">Klick: Details</small></div>`;
+    `<small class="tt-hint">Click: details</small></div>`;
 }
 
 // sites: Angriffsziele, [0] = 3lis.de, danach Außensensoren ({name, lat, lon, label, color}, sensors.js)

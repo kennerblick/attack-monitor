@@ -121,7 +121,7 @@ class PostgresHoneypot(Honeypot):
         kind, body = read_message(sock)
         if kind != b"p":
             return
-        login(attempt(user, "Passwort", body.rstrip(b"\0")))
+        login(attempt(user, "password", body.rstrip(b"\0")))
         status = b"".join(message(b"S", cstr(k) + cstr(v)) for k, v in PARAMS.items())
         sock.sendall(message(b"R", struct.pack("!I", 0)) + status
                      + message(b"K", struct.pack("!I", os.getpid() % 30000 + 1000) + os.urandom(4)) + ready())

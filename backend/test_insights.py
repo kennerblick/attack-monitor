@@ -16,11 +16,11 @@ HOUR = 3600
 
 
 def login(ip, user, pw, ts):
-    return {"ts": ts, "ip": ip, "type": "SSH-Probe", "sev": "high", "detail": f"Login-Versuch als „{user}“ · Passwort „{pw}“"}
+    return {"ts": ts, "ip": ip, "type": "SSH-Probe", "sev": "high", "detail": f"Login attempt as “{user}” · password “{pw}”"}
 
 
 def command(ip, cmd, ts):
-    return {"ts": ts, "ip": ip, "type": "SSH-Probe", "sev": "crit", "detail": f"Befehl „{cmd}“"}
+    return {"ts": ts, "ip": ip, "type": "SSH-Probe", "sev": "crit", "detail": f"Command “{cmd}”"}
 
 
 class TrendTests(unittest.TestCase):

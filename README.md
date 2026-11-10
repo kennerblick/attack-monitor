@@ -1,6 +1,7 @@
 # 3lis.de – Website mit Live Threat Monitor
 
-Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server:
+Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server (Oberfläche und
+Event-Texte englisch; Strudel, Lernseiten, Besucherstatistik, Impressum und Datenschutz deutsch):
 ein interaktiver 3D-Globus (Länder nach Angriffen eingefärbt, Herde als Säulen, Live-Bögen, Tooltips,
 Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länder, ASN, Ports,
 Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste, eine Wochen-Heatmap und ein Lagebild
@@ -113,7 +114,7 @@ Entscheidung und Hintergrund: [docs/decisions/2026-11-10-ki-insights.md](docs/de
   Prognose 24 h = Erwartung × aktuelles Niveau (abklingend), Spitzen = Stunden über dem Band.
 - **Kampagnen** (`campaigns.py`): ≥ 3 IPs mit identischer Befehlsfolge oder identischer Passwortliste (24 h);
   **Wellen** = ASN mit dem Fünffachen seines Stundenmittels in der letzten Stunde.
-- **Passt zu** (`news.py`): stündlich heise Security, BleepingComputer, BSI WID, mastodon.social #threatintel, täglich
+- **In the news** (`news.py`): stündlich heise Security, BleepingComputer, BSI WID, mastodon.social #threatintel, täglich
   CISA KEV. Abgleich über Themen (WordPress, .env/Secrets, .git, Spring Actuator, DB-Erpressung, Mirai/IoT, VPN-Gateways …):
   SQL-Bedingung auf die eigenen Events der letzten 7 Tage (≥ 20) und Stichwort-Muster auf Meldungen (14 Tage, KEV 60 Tage).
 - **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Schreibt stündlich einen Lagebericht, benennt

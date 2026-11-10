@@ -27,5 +27,5 @@ class TelnetHoneypot(Honeypot):
         password = lines.next()
         if password is None:
             return
-        login(attempt(user, "Passwort", password))
+        login(attempt(user, "password", password))
         self.shell(ip, lambda on_line: fakeshell.run_shell(lines, send, on_line))

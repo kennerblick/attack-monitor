@@ -41,7 +41,7 @@ function redrawStats() {
   renderTimeline(document.getElementById("timeline"), state.stats.timeline, state.active);
   renderHeatmap(document.getElementById("heatmap"), state.stats.heatmap);
   document.getElementById("tl-sub").textContent =
-    { "1h": "letzte Stunde · je Minute", "24h": "24 Stunden · je 30 Min.", "7d": "7 Tage · je 3 Std." }[state.stats.range];
+    { "1h": "last hour · per minute", "24h": "24 hours · per 30 min", "7d": "7 days · per 3 h" }[state.stats.range];
   globe?.setStats(state.stats);
 }
 
@@ -114,7 +114,7 @@ async function pollStatus() {
 function tick() {
   const now = new Date();
   document.getElementById("clock").innerHTML =
-    `<b>${now.toLocaleTimeString("de-DE")}</b> · UTC ${now.toISOString().slice(11, 19)}`;
+    `<b>${now.toLocaleTimeString("en-GB")}</b> · UTC ${now.toISOString().slice(11, 19)}`;
   document.getElementById("live").classList.toggle("stale", Date.now() - state.lastOk > 15000);
 }
 
@@ -143,7 +143,7 @@ addEventListener("resize", () => { redrawStats(); redrawForecast(state.insights)
       else b.setAttribute("aria-pressed", key === "rotate" ? globe.toggleRotation() : globe.toggleLayer(key));
     }));
   } catch (err) {
-    document.getElementById("globe").innerHTML = '<p class="empty" style="padding:24px">3D-Globus konnte nicht geladen werden (WebGL?).</p>';
+    document.getElementById("globe").innerHTML = '<p class="empty" style="padding:24px">Could not load the 3D globe (WebGL?).</p>';
     console.error(err);
   }
   await pollStats();

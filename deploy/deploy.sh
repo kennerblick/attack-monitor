@@ -30,6 +30,17 @@ for s in 3lis-besucher 3lis-php-honeypot; do
   grep -q "snippets/$s.conf" /etc/nginx/sites-available/default || { echo "include $s fehlt im Vhost default" >&2; exit 1; }
 done
 nginx -t && systemctl reload nginx
+# Vor der einmaligen Migration auf englische Event-Texte (store.py, user_version 1) die DB sichern
+DB=/var/lib/attack-monitor/events.db
+[ -e "$DB" ] && python3 - "$DB" "/var/backups/attack-monitor-events.$STAMP.db" <<'PY'
+import sqlite3, sys
+src = sqlite3.connect(sys.argv[1])
+if src.execute("PRAGMA user_version").fetchone()[0] < 1:
+    dst = sqlite3.connect(sys.argv[2])
+    src.backup(dst)
+    dst.close()
+    print("DB-Backup:", sys.argv[2])
+PY
 systemctl restart attack-monitor  # gibt die Honeypot-Ports frei, falls noch die alte Version lief
 systemctl enable -q attack-honeypots && systemctl restart attack-honeypots
 

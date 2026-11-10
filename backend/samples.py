@@ -36,15 +36,15 @@ def kind(data):
         machine = struct.unpack("<H" if data[5] == 1 else ">H", data[18:20])[0]
         return f"ELF {ARCH.get(machine, machine)}"
     if data[:2] == b"#!":
-        return "Skript"
+        return "script"
     if data[:2] == b"MZ":
         return "Windows-EXE"
-    return "Daten"
+    return "data"
 
 
 def looks_executable(data):
     """Dropper schreiben auch Testdateien („echo AK > .t“); nur Programme und Skripte sind Samples."""
-    return kind(data) != "Daten" or len(data) >= 1024
+    return kind(data) != "data" or len(data) >= 1024
 
 
 def _used():

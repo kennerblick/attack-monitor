@@ -31,8 +31,8 @@ function niceMax(v) {
 function bucketLabel(t, bucket) {
   const d = new Date(t * 1000);
   return bucket >= 3 * 3600
-    ? d.toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    ? d.toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function renderTimeline(svg, timeline, active) {
@@ -75,7 +75,7 @@ export function renderTimeline(svg, timeline, active) {
   });
 }
 
-const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function renderHeatmap(svg, grid) {
   const W = svg.clientWidth || 400, L = 26, B = 18;
@@ -90,7 +90,7 @@ export function renderHeatmap(svg, grid) {
     row.forEach((n, h) => {
       const level = n ? Math.min(RAMP.length - 1, 1 + Math.floor((n / max) ** 0.75 * (RAMP.length - 1))) : 0;
       const r = node("rect", { x: L + h * cell + 1, y: d * cell + 1, width: cell - 2, height: cell - 2, rx: 3, fill: RAMP[level] }, svg);
-      r.addEventListener("mousemove", e => showTip(e, `<b>${DAYS[d]}, ${String(h).padStart(2, "0")}:00–${String(h).padStart(2, "0")}:59</b><div><span>Angriffe</span><span>${num(n)}</span></div>`));
+      r.addEventListener("mousemove", e => showTip(e, `<b>${DAYS[d]}, ${String(h).padStart(2, "0")}:00–${String(h).padStart(2, "0")}:59</b><div><span>Attacks</span><span>${num(n)}</span></div>`));
       r.addEventListener("mouseleave", hideTip);
     });
   });
@@ -137,12 +137,12 @@ export function renderForecast(svg, trend) {
         fill: "none", stroke: "#4fd1ff", "stroke-dasharray": "2 2", rx: 1.5 }, svg);
     }
     if (i % 6 === 0) node("text", { ...axis, x: cx(i), y: H - 6, "text-anchor": "middle" }, svg)
-      .textContent = new Date(h.t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      .textContent = new Date(h.t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     const hit = node("rect", { x, y: T, width: step, height: H - B - T, fill: "transparent" }, svg);
-    const when = new Date(h.t * 1000).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    const rows = [h.n != null && ["Ist", num(h.n)], h.now && ["Hochgerechnet", num(h.pace)],
-      ["Erwartung", num(Math.round(h.exp))], ["Üblich", `${num(Math.round(h.lo))}–${num(Math.round(h.hi))}`]].filter(Boolean);
-    hit.addEventListener("mousemove", e => showTip(e, `<b>${when}${h.n == null ? " · Prognose" : ""}${spikes.has(h.t) ? " · Spitze" : ""}</b>` +
+    const when = new Date(h.t * 1000).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    const rows = [h.n != null && ["Actual", num(h.n)], h.now && ["Projected", num(h.pace)],
+      ["Expected", num(Math.round(h.exp))], ["Usual", `${num(Math.round(h.lo))}–${num(Math.round(h.hi))}`]].filter(Boolean);
+    hit.addEventListener("mousemove", e => showTip(e, `<b>${when}${h.n == null ? " · forecast" : ""}${spikes.has(h.t) ? " · spike" : ""}</b>` +
       rows.map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join("")));
     hit.addEventListener("mouseleave", hideTip);
   });
