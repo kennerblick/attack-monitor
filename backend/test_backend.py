@@ -1,4 +1,5 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
+import hashlib
 import http.client
 import json
 import os
@@ -476,3 +477,26 @@ class FakeShellTests(unittest.TestCase):
         chunks = iter([b"a\r", b"\nb\rc", b"\n", b""])
         lines = fakeshell.Lines(lambda n: next(chunks))
         self.assertEqual([lines.next() for _ in range(4)], ["a", "b", "c", None])
+
+
+class SensorSampleTests(unittest.TestCase):
+    def test_missing_samples_are_pulled_and_verified(self):
+        good, bad = b"\x7fELF good", b"\x7fELF bad"
+        hashes = [hashlib.sha256(d).hexdigest() for d in (good, bad)] + ["c" * 64]
+        store = Store(":memory:")
+        store.add_events([parsers.event(1, "1.2.3.4", "Malware-Sample", "crit", "honeypot", 22,
+                                        f"Sample “{h}” · 9 B · data · x") for h in hashes[:2]] +
+                         [parsers.event(1, "1.2.3.4", "Malware-Sample", "crit", "honeypot", 22,
+                                        f"Sample “{hashes[2]}” · 9 B · data · x · not stored (storage full)")])
+        store.db.execute("UPDATE events SET sensor='oci'")
+        asked, failed = [], set()
+
+        def get(sensor, command):
+            asked.append(command)
+            return good if hashes[0] in command else b"tampered"
+        sensors.pull_samples(store, {"name": "oci"}, failed, get)
+        self.assertEqual(sorted(asked), sorted(f"sample {h}" for h in hashes[:2]))  # „not stored“ nicht anfragen
+        self.assertTrue(os.path.exists(os.path.join(samples.DIR, hashes[0])))
+        self.assertFalse(os.path.exists(os.path.join(samples.DIR, hashes[1])))  # falscher Hash verworfen
+        sensors.pull_samples(store, {"name": "oci"}, failed, get)
+        self.assertEqual(len(asked), 2)  # vorhanden bzw. fehlgeschlagen: nicht erneut
