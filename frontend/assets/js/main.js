@@ -1,11 +1,12 @@
-// Steuerung: holt Feed (2 s), Statistik (15 s) und Status (30 s) und verteilt sie auf Globus und Panels.
+// Steuerung: holt Feed (2 s), Statistik (15 s), Status (30 s) und Lagebild (60 s) und verteilt sie auf Globus und Panels.
 import { createGlobe } from "./globe.js";
 import { renderKpis, renderTypes, renderLists, renderFeed, toast } from "./panels.js";
 import { LOCAL, setSensors, sensorSites } from "./sensors.js";
 import { initDrawer, setRange, openList, openEvent, openCountry } from "./drawer.js";
 import { renderTimeline, renderHeatmap } from "./charts.js";
+import { renderInsights, redrawForecast } from "./insights.js";
 
-const state = { range: "24h", active: null, events: [], lastId: 0, stats: null, status: null, lastOk: 0, lastFresh: 0 };
+const state = { range: "24h", active: null, events: [], lastId: 0, stats: null, status: null, insights: null, lastOk: 0, lastFresh: 0 };
 const REPLAY_AFTER = 6000; // ms ohne neuen Angriff, ab dann werden die letzten echten wiederholt
 let globe = null;
 
@@ -101,6 +102,10 @@ async function pollStats() {
   try { state.stats = await getJson(`/api/stats?range=${state.range}`); redrawStats(); } catch { /* später */ }
 }
 
+async function pollInsights() {
+  try { state.insights = await getJson("/api/insights"); renderInsights(state.insights, openList); } catch { /* später */ }
+}
+
 async function pollStatus() {
   try { state.status = await getJson("/api/status"); renderKpis(null, state.status); } catch { /* später */ }
   return state.status;
@@ -119,7 +124,7 @@ document.querySelectorAll(".ranges button").forEach(b => b.addEventListener("cli
   setRange(state.range);
   pollStats();
 }));
-addEventListener("resize", () => redrawStats());
+addEventListener("resize", () => { redrawStats(); redrawForecast(state.insights); });
 
 (async function start() {
   initDrawer({ focus: (lat, lon) => globe?.focus(lat, lon) });
@@ -142,10 +147,12 @@ addEventListener("resize", () => redrawStats());
     console.error(err);
   }
   await pollStats();
+  pollInsights();
   await pollFeed();
   setInterval(pollFeed, 2000);
   setInterval(pollStats, 15000);
   setInterval(pollStatus, 30000);
+  setInterval(pollInsights, 60000);
   setInterval(refreshGeo, 6000);
   setInterval(replay, 1100);
 })();

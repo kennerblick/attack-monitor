@@ -3,7 +3,8 @@
 Die Website von 3lis.de. Startseite ist ein Echtzeit-Lagebild aller Angriffe auf den Server:
 ein interaktiver 3D-Globus (Länder nach Angriffen eingefärbt, Herde als Säulen, Live-Bögen, Tooltips,
 Klick öffnet Land/Angriff), ein Live-Feed, Kennzahlen, Top-Listen (Arten, Länder, ASN, Ports,
-Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste und eine Wochen-Heatmap. Jeder Top-Listen-Eintrag
+Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste, eine Wochen-Heatmap und ein Lagebild
+(KI-Lagebericht, Trend & Prognose, erkannte Kampagnen und Wellen, siehe unten). Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
 **Strudel Groove Machine** (6 Genres inkl. Paul-Kalkbrenner-Stil mit je 6–9 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen, eigene Samples aus dem Browser oder per Sample-Bank-URL), die
@@ -102,6 +103,25 @@ Die Events liegen in SQLite (`/var/lib/attack-monitor/events.db`) und werden nac
 Beim ersten Start mit leerer DB liest das Backend die rotierten Logs der letzten 7 Tage nach.
 Danach setzt es an gespeicherten Offsets fort.
 
+## Lagebild (KI-Insights)
+
+`backend/insights.py` läuft alle 15 min im Hauptdienst. Grundsatz: Python rechnet, das LLM schreibt nur Texte.
+Entscheidung und Hintergrund: [docs/decisions/2026-11-10-ki-insights.md](docs/decisions/2026-11-10-ki-insights.md).
+
+- **Trend & Prognose** (`trends.py`): Erwartung je Tagesstunde = Median der letzten 7 Tage, Band ± 2σ (MAD),
+  Prognose 24 h = Erwartung × aktuelles Niveau (abklingend), Spitzen = Stunden über dem Band.
+- **Kampagnen** (`campaigns.py`): ≥ 3 IPs mit identischer Befehlsfolge oder identischer Passwortliste (24 h);
+  **Wellen** = ASN mit dem Fünffachen seines Stundenmittels in der letzten Stunde.
+- **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Benennt neue Kampagnen (einmal je Kampagne)
+  und schreibt stündlich einen Lagebericht. Zugang per SSH auf den erzwungenen Befehl `deploy/sensor/llm-proxy.py`
+  (Benutzer `attack-llm`). Der Proxy lehnt ab, solange oci-worker rendert (Last > 1 oder < 6 GB frei).
+- Angreiferdaten gehen nur mit gekürzten IPs ins Prompt und sind dort als Daten markiert. Die Ausgabe wird
+  gefiltert (keine Links, kein Markdown, Länge begrenzt) und nur als Text angezeigt.
+
+Einrichten: auf oci-worker `sudo deploy/sensor/deploy-llm.sh '<sensor_key.pub von 3lis.de>'` (wie beim Sensor per
+`git archive` kopieren), auf 3lis.de `/etc/attack-monitor/llm.json` = `{"ssh": "attack-llm@150.230.152.179", "port": 22022}`,
+dann `systemctl restart attack-monitor`. Ohne `llm.json` laufen Trend und Kampagnen ohne Texte.
+
 ## Besucherstatistik (intern)
 
 `https://3lis.de/besucher/` hinter Authelia (Zwei-Faktor). Zeigt Besucher und Aufrufe pro Tag,
@@ -127,7 +147,8 @@ einmalig die alten gemischten `access.log*` nach, bis zum Beginn des eigenen Log
 | `ATTACK_PORT` | `8099` | API-Port (nur 127.0.0.1) |
 | `ATTACK_SSH_KEY` | `/var/lib/attack-monitor/ssh_host_rsa_key` | Host-Key des SSH-Honeypots (wird beim ersten Start erzeugt) |
 | `ATTACK_SENSORS` | `/etc/attack-monitor/sensors.json` | Außensensoren (fehlt die Datei: keine) |
-| `ATTACK_SENSOR_KEY` | `/etc/attack-monitor/sensor_key` | SSH-Schlüssel zum Abholen (legt `deploy.sh` an) |
+| `ATTACK_SENSOR_KEY` | `/etc/attack-monitor/sensor_key` | SSH-Schlüssel zum Abholen (legt `deploy.sh` an), auch für den LLM-Proxy |
+| `ATTACK_LLM` | `/etc/attack-monitor/llm.json` | LLM-Proxy (fehlt die Datei: Lagebild ohne KI-Texte) |
 
 nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled/default`).
 
@@ -141,6 +162,7 @@ nginx leitet `/api/` an `127.0.0.1:8099` weiter (vhost `/etc/nginx/sites-enabled
   `frontend/assets/vendor/`. Es gibt keine CDNs und keine Google Fonts.
 - Einzige externe Quelle im Browser: Strudel lädt Samples von `raw.githubusercontent.com`. Eigene Samples
   bleiben im Browser (IndexedDB); selbst eingetragene Sample-Bänke lädt der Browser direkt von dort.
+- Das Sprachmodell läuft auf eigener Infrastruktur (oci-worker), keine externe KI-API.
 - Konzept zum Umwandeln echter Songs in Patterns: [docs/song-konvertierung.md](docs/song-konvertierung.md).
 
 ## Struktur

@@ -3,6 +3,7 @@
 Persistenz statt RAM-Deque: Statistiken über 7 Tage überleben so jeden
 Neustart, und Geo-Lookups werden pro IP nur einmal bei ip-api.com angefragt.
 """
+import json
 import sqlite3
 import threading
 import time
@@ -19,6 +20,9 @@ CREATE TABLE IF NOT EXISTS geo (
     ip TEXT PRIMARY KEY, lat REAL, lon REAL, cc TEXT, country TEXT,
     city TEXT, isp TEXT, asn TEXT, fetched REAL, org TEXT, hosting INTEGER, proxy INTEGER, mobile INTEGER);
 CREATE TABLE IF NOT EXISTS offsets (path TEXT PRIMARY KEY, inode INTEGER, pos INTEGER);
+CREATE TABLE IF NOT EXISTS insights (
+    kind TEXT NOT NULL, key TEXT NOT NULL, ts REAL NOT NULL, data TEXT, text TEXT, model TEXT,
+    PRIMARY KEY (kind, key));
 """
 
 EVENT_COLUMNS = ("ts", "ip", "type", "sev", "src", "port", "detail", "jail", "sensor")
@@ -115,6 +119,20 @@ class Store:
                 "INSERT OR REPLACE INTO geo(ip,lat,lon,cc,country,city,isp,asn,fetched,org,hosting,proxy,mobile) "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", [tuple(r) + (None,) * (13 - len(r)) for r in rows])
 
+    # --- Insights (insights.py): data = JSON der Kennzahlen, text/model = LLM-Ergebnis ---
+    def put_insight(self, kind, key, ts, data, text=None, model=None):
+        """Kennzahlen ersetzen; ein vorhandener LLM-Text bleibt erhalten, wenn keiner übergeben wird."""
+        with self.lock, self.db:
+            self.db.execute(
+                "INSERT INTO insights VALUES (?,?,?,?,?,?) ON CONFLICT(kind, key) DO UPDATE SET ts=excluded.ts, "
+                "data=excluded.data, text=COALESCE(excluded.text, text), model=COALESCE(excluded.model, model)",
+                (kind, key, ts, json.dumps(data, ensure_ascii=False), text, model))
+
+    def insights(self, kind, since=0, limit=50):
+        rows = self.query("SELECT key, ts, data, text, model FROM insights WHERE kind=? AND ts>=? ORDER BY ts DESC LIMIT ?",
+                          (kind, since, limit))
+        return [{"key": k, "ts": ts, "data": json.loads(d) if d else None, "text": t, "model": m} for k, ts, d, t, m in rows]
+
     # --- Lesen ---
     def feed(self, since_id=0, limit=80):
         rows = self.query(FEED_SELECT + "WHERE e.id>? ORDER BY e.ts DESC, e.id DESC LIMIT ?", (since_id, limit))
@@ -163,3 +181,4 @@ class Store:
         with self.lock, self.db:
             self.db.execute("DELETE FROM events WHERE ts<?", (time.time() - RETENTION,))
             self.db.execute("DELETE FROM geo WHERE ip NOT IN (SELECT DISTINCT ip FROM events)")
+            self.db.execute("DELETE FROM insights WHERE ts<?", (time.time() - RETENTION,))

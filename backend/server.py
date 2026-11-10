@@ -7,13 +7,13 @@ Endpoints (alle JSON, nur lesend):
   /api/status            Server-Standort, Außensensoren, aktive fail2ban-Bans, Sperrliste
   /api/events?kind=type|cc|asn|port|user|password|command|path|jail|sensor|ip&value=..&range=..   Vorgänge zu einem Top-Listen-Eintrag
   /api/visits            Besucherstatistik (nginx schützt den Pfad per Authelia)
+  /api/insights          Trend/Prognose, Kampagnen, KI-Lagebericht (insights.py)
   /api/ip?id=<event-id>  Profil der IP hinter einem Event (Verlauf, Verhalten, rDNS, Einstufung, Sperrstatus)
 Angreifer-IPs werden vor der Auslieferung auf /24 gekürzt (DSGVO).
 """
 import ast
 import json
 import os
-import re
 import subprocess
 import threading
 import time
@@ -21,7 +21,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import geo
+import insights
 import intel
+import llm
+from intel import mask
 import sensors
 import stats
 import tail
@@ -31,7 +34,6 @@ from store import Store
 DB_PATH = os.environ.get("ATTACK_DB", "/var/lib/attack-monitor/events.db")
 LISTEN = ("127.0.0.1", int(os.environ.get("ATTACK_PORT", "8099")))
 HOSTS_DENY = "/etc/hosts.deny"
-IPV4 = re.compile(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}\b')
 
 _cache = {}
 
@@ -43,10 +45,6 @@ def cached(key, ttl, fn):
     value = fn()
     _cache[key] = (time.time(), value)
     return value
-
-
-def mask(text):
-    return IPV4.sub(r'\1.x', text) if text else text
 
 
 def masked(events):
@@ -93,7 +91,7 @@ def blocklist_size():
     return len(cached("denied", 300, denied_ips))
 
 
-def make_handler(store, server_location, counter, sensor_list=()):
+def make_handler(store, server_location, counter, sensor_list=(), llm_enabled=False):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             url = urlparse(self.path)
@@ -113,6 +111,8 @@ def make_handler(store, server_location, counter, sensor_list=()):
                     key = q.get("range", ["24h"])[0]
                     key = key if key in stats.RANGES else "24h"  # begrenzt auch die Cache-Schlüssel
                     body = cached(f"stats-{key}", 10, lambda: stats.compute(store, key))
+                elif url.path == "/api/insights":
+                    body = cached("insights", 30, lambda: insights.payload(store, llm_enabled))
                 elif url.path == "/api/visits":
                     body = cached("visits", 60, counter.summary)
                 elif url.path == "/api/status":
@@ -145,5 +145,7 @@ if __name__ == "__main__":
     remote = sensors.load()
     if remote:
         threading.Thread(target=sensors.worker, args=(store, remote), daemon=True).start()
+    llm_cfg = llm.load()
+    threading.Thread(target=insights.worker, args=(store, llm_cfg), daemon=True).start()
     print(f"Attack Monitor API listening on {LISTEN[0]}:{LISTEN[1]}", flush=True)
-    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter, remote)).serve_forever()
+    ThreadingHTTPServer(LISTEN, make_handler(store, geo.server_location(), counter, remote, bool(llm_cfg))).serve_forever()

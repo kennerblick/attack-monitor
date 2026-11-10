@@ -79,6 +79,14 @@ def _resolve(ip):
         return None
 
 
+IPV4 = re.compile(r'\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}\b')
+
+
+def mask(text):
+    """IPv4-Adressen in Texten auf /24 kürzen (DSGVO); gilt für alles, was ausgeliefert oder ans LLM gegeben wird."""
+    return IPV4.sub(r'\1.x', text) if text else text
+
+
 def mask_host(host, ip):
     """rDNS-Namen kürzen, wenn sie die IP enthalten (z. B. 1-2-3-4.dsl.example.net -> 1-2-3-x...)."""
     if not host:

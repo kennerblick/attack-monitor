@@ -43,13 +43,13 @@ function bindEvents(events) {
 
 const RANGE_LABEL = { "1h": "letzte Stunde", "24h": "letzte 24 Stunden", "7d": "letzte 7 Tage" };
 
-export async function openList(kind, value, label) {
-  const view = () => openList(kind, value, label);
+export async function openList(kind, value, label, range = ctx.range) {
+  const view = () => openList(kind, value, label, range);
   show(view, label, '<p class="empty">Lade Vorgänge …</p>');
   try {
-    const { total, events } = await getJson(`/api/events?kind=${kind}&value=${encodeURIComponent(value)}&range=${ctx.range}`);
+    const { total, events } = await getJson(`/api/events?kind=${kind}&value=${encodeURIComponent(value)}&range=${range}`);
     if (history.at(-1) !== view) return; // inzwischen andere Ansicht geöffnet
-    $("drawer-body").innerHTML = `<p class="sub">${num(total)} Vorgänge · ${RANGE_LABEL[ctx.range]}` +
+    $("drawer-body").innerHTML = `<p class="sub">${num(total)} Vorgänge · ${RANGE_LABEL[range]}` +
       `${total > events.length ? ` · neueste ${events.length}` : ""}</p>` +
       `<ul class="feed">${events.map(feedItem).join("") || '<li class="empty">Keine Vorgänge</li>'}</ul>`;
     bindEvents(events);

@@ -1,4 +1,4 @@
-// SVG-Diagramme: gestapelte Zeitleiste nach Angriffsart und Wochentag×Stunde-Heatmap, beide mit Tooltip.
+// SVG-Diagramme: gestapelte Zeitleiste, Wochentag×Stunde-Heatmap und Trend/Prognose, alle mit Tooltip.
 import { TYPES, num } from "./format.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -97,5 +97,53 @@ export function renderHeatmap(svg, grid) {
   [0, 6, 12, 18, 23].forEach(h => {
     node("text", { x: L + h * cell + cell / 2, y: H - 4, "text-anchor": "middle", fill: "#6b7894", "font-size": 10, "font-family": "ui-monospace" }, svg)
       .textContent = `${h}h`;
+  });
+}
+
+// Trend & Prognose: 24 h Ist (Säulen) + 24 h Prognose, Erwartungsband (Median ± 2σ) und Erwartung (gestrichelt).
+export function renderForecast(svg, trend) {
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 220, L = 44, B = 24, T = 8;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = "";
+  const cur = trend.current;
+  const hours = [...trend.history, { ...trend.forecast[0], n: cur.n, pace: cur.pace, now: true }, ...trend.forecast.slice(1)];
+  const max = niceMax(Math.max(1, ...hours.map(h => Math.max(h.hi, h.n ?? 0, h.pace ?? 0))));
+  const y = v => H - B - (v / max) * (H - B - T);
+  const step = (W - L) / hours.length;
+  const cx = i => L + i * step + step / 2;
+  const axis = { fill: "#6b7894", "font-size": 10, "font-family": "ui-monospace" };
+
+  for (let i = 0; i <= 4; i++) {
+    const v = (max / 4) * i;
+    node("line", { x1: L, x2: W, y1: y(v), y2: y(v), stroke: "#1e2a44", "stroke-width": 1 }, svg);
+    node("text", { ...axis, x: L - 8, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = num(Math.round(v));
+  }
+  const band = hours.map((h, i) => `${cx(i)},${y(h.hi)}`).concat(hours.map((h, i) => `${cx(i)},${y(h.lo)}`).reverse());
+  node("polygon", { points: band.join(" "), fill: "#3f8fe8", "fill-opacity": 0.14 }, svg);
+  node("polyline", { points: hours.map((h, i) => `${cx(i)},${y(h.exp)}`).join(" "), fill: "none", stroke: "#7db6f2",
+    "stroke-width": 1.5, "stroke-dasharray": "4 4" }, svg);
+  const nowX = L + trend.history.length * step;
+  node("rect", { x: nowX, y: T, width: W - nowX, height: H - B - T, fill: "#ffffff", "fill-opacity": 0.025 }, svg);
+  node("line", { x1: nowX, x2: nowX, y1: T, y2: H - B, stroke: "#4fd1ff", "stroke-width": 1 }, svg);
+  node("text", { ...axis, x: nowX + 4, y: T + 10, fill: "#4fd1ff" }, svg).textContent = "jetzt";
+
+  const spikes = new Set(trend.anomalies.map(a => a.t));
+  hours.forEach((h, i) => {
+    const x = L + i * step;
+    if (h.n != null) {
+      const fill = spikes.has(h.t) ? "#e66767" : h.now ? "#4fd1ff" : "#3987e5";
+      node("rect", { x: x + 1, y: y(h.n), width: Math.max(1, step - 2), height: Math.max(0.5, y(0) - y(h.n)), fill, rx: 1.5 }, svg);
+      if (h.now) node("rect", { x: x + 1, y: y(h.pace), width: Math.max(1, step - 2), height: Math.max(0.5, y(0) - y(h.pace)),
+        fill: "none", stroke: "#4fd1ff", "stroke-dasharray": "2 2", rx: 1.5 }, svg);
+    }
+    if (i % 6 === 0) node("text", { ...axis, x: cx(i), y: H - 6, "text-anchor": "middle" }, svg)
+      .textContent = new Date(h.t * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const hit = node("rect", { x, y: T, width: step, height: H - B - T, fill: "transparent" }, svg);
+    const when = new Date(h.t * 1000).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    const rows = [h.n != null && ["Ist", num(h.n)], h.now && ["Hochgerechnet", num(h.pace)],
+      ["Erwartung", num(Math.round(h.exp))], ["Üblich", `${num(Math.round(h.lo))}–${num(Math.round(h.hi))}`]].filter(Boolean);
+    hit.addEventListener("mousemove", e => showTip(e, `<b>${when}${h.n == null ? " · Prognose" : ""}${spikes.has(h.t) ? " · Spitze" : ""}</b>` +
+      rows.map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join("")));
+    hit.addEventListener("mouseleave", hideTip);
   });
 }

@@ -4,7 +4,9 @@
 Logs (syslog, auth, nginx access/error, fail2ban) und Honeypots :3306/:5432/:22/:21/:23 und `*.php` (nginx → :8098) → `tail.py`/`honeypot_*.py` (Offsets in DB), Außensensoren über `sensors.py` → `parsers.py` → SQLite
 `events` ← `geo.py` (ip-api Batch, füllt `geo`) → `server.py` (`/api/feed`, `/api/stats`, `/api/status`,
 `/api/events` Drilldown, `/api/ip?id=` IP-Profil, IP-Kürzung) → nginx `/api/` → Browser
-(`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s; `drawer.js` lädt Drilldown/Profil bei Klick).
+(`assets/js/main.js` pollt Feed 2 s, Stats 15 s, Status 30 s, Insights 60 s; `drawer.js` lädt Drilldown/Profil bei Klick).
+Insights: `insights.py` (alle 15 min) ← `trends.py` + `campaigns.py` aus `events`; Texte per `llm.py` → SSH →
+oci-worker `llm-proxy.py` → Ollama; Ergebnis in Tabelle `insights` → `/api/insights`.
 
 ## Backend (`backend/`, stdlib + `python3-paramiko`)
 Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als root (Logs, fail2ban),
@@ -20,6 +22,10 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `tail.py` | Logs fortlaufend lesen, 7-Tage-Seed beim ersten Start, stündliches Prune |
 | `parsers.py` | ein Parser je Quelle → Event-Dict (Zeitstempel aus der Logzeile) |
 | `store.py` | SQLite-Schema (+ Spalten-Migration), Feed, Drilldown-Filter (`FILTERS`), IP-Profil-Abfragen |
+| `trends.py` | Stundenzählung, Erwartung je Tagesstunde (Median/MAD), 24-h-Prognose, Spitzen |
+| `campaigns.py` | Kampagnen (gleiche Befehlsfolge/Passwortliste über ≥ 3 IPs) und ASN-Wellen, stabiler Schlüssel je Fingerabdruck |
+| `llm.py` | SSH-Aufruf des LLM-Proxys (`Busy` bei Rendering), Ausgabefilter `clean()` |
+| `insights.py` | Worker: Trend, Kampagnen, LLM-Namen (max. 3/Runde), stündlicher Lagebericht; `payload()` für die API |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap, Samples |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
 | `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`/`command()`-Detailtexte (Benutzer, Passwort, Befehl), `shell()` beobachtet Fake-Shell-Sitzungen, `sample()` → `Malware-Sample` |
@@ -32,11 +38,12 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `fakeshell.py` | Fake-Shell: feste Antworten, Zeilenleser, Sitzungsschleife; Befehle als Event „Befehl „…““ (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |
-| `test_backend.py` | Unit-Tests (`python3 -m unittest`) |
+| `test_backend.py`, `test_insights.py` | Unit-Tests (`python3 -m unittest`) |
 
 DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sensor NULL = 3lis.de),
 `geo(ip, lat, lon, cc, country, city, isp, asn, fetched, org, hosting, proxy, mobile)`, `offsets(path, inode, pos)`,
-`visits(day, ts, visitor, path, ref)`, `humans(day, visitor)` (Besucher mit Ressourcen-Abruf).
+`visits(day, ts, visitor, path, ref)`, `humans(day, visitor)` (Besucher mit Ressourcen-Abruf),
+`insights(kind, key, ts, data, text, model)` (kind trend/campaign/report; data JSON, text = LLM, bei Kampagnen JSON name/summary/intent).
 
 ## Frontend (`frontend/` → `/var/www/lernseite/`)
 | Pfad | Zweck |
@@ -50,7 +57,8 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sen
 | `assets/js/panels.js` | KPIs, Top-Listen (klickbar), Feed, Toast |
 | `assets/js/sensors.js` | Sensoren: feste Farbe je Sensor, Plakette (Feed, Toast, Detail, Globus-Titel) |
 | `assets/js/drawer.js` | Schublade: Vorgangslisten, Event + IP-Profil, Land; mit Zurück-Verlauf |
-| `assets/js/charts.js` | SVG-Zeitleiste (gestapelt) und Heatmap mit Tooltips |
+| `assets/js/charts.js` | SVG-Zeitleiste (gestapelt), Heatmap und Trend/Prognose mit Tooltips |
+| `assets/js/insights.js` | Lagebild: Lagebericht, Trend-Hinweis, Kampagnen-Karten (Klick = Vorgänge 24 h) |
 | `assets/js/format.js` | Typ-Farben (validierte Palette), Formatierung, Port-Dienste |
 | `assets/vendor/` | globe.gl 2.46.2, topojson-client 3.1.0, world-atlas 2.0.2, @strudel/web 1.3.0 (+ clockworker) |
 | `strudel/` | Groove Machine: `genres/` (je Genre 12 Spuren + Varianten/Subgenres, `index.js`), `code.js` (Code-Generator: Anzeige mit festen Werten, gespielt mit `grooveFx`), `fx.js` (Echtzeit-FX über `withValue`/`ref`: DJ-Filter, Regler, Halte-Effekte), `live.js` (Live-Code-Markierung über `hap.context.locations`), `app.js` (UI, Start/Stopp über `repl.stop()`), `samples.js` (eigene Samples: Dateien in IndexedDB, Bank-URLs in localStorage, Spur „Eigene Samples“) |
@@ -60,6 +68,6 @@ DB-Schema: `events(id, ts, ip, type, sev, src, port, detail, jail, sensor)` (sen
 | `impressum.html`, `datenschutz.html` | Rechtstexte |
 
 ## Deploy
-`deploy/deploy.sh` (root), `deploy/sensor/` (Außensensor: Unit, nginx, `deploy-sensor.sh`), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
+`deploy/deploy.sh` (root), `deploy/sensor/` (Außensensor: Unit, nginx, `deploy-sensor.sh`; LLM-Zugang: `llm-proxy.py`, `deploy-llm.sh`), systemd-Units `deploy/attack-monitor.service` und `deploy/attack-honeypots.service` (gehärtet), fail2ban-Filter in `deploy/`,
 nginx-Snippets `deploy/nginx-3lis-besucher.conf` (eigenes Log + Authelia-Schutz für `/besucher/`, `/api/visits`)
 und `deploy/nginx-3lis-php-honeypot.conf` (`.php` → Honeypot, nur echte Skripte an php-fpm).
