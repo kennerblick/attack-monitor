@@ -122,7 +122,7 @@ Entscheidung und Hintergrund: [docs/decisions/2026-11-10-ki-insights.md](docs/de
   **Wellen** = ASN mit dem Fünffachen seines Stundenmittels in der letzten Stunde.
 - **In the news** (`news.py`): stündlich heise Security, BleepingComputer, BSI WID, mastodon.social #threatintel, täglich
   CISA KEV. Abgleich über Themen (WordPress, .env/Secrets, .git, Spring Actuator, DB-Erpressung, Mirai/IoT, VPN-Gateways …):
-  SQL-Bedingung auf die eigenen Events der letzten 7 Tage (≥ 20) und Stichwort-Muster auf Meldungen (14 Tage, KEV 60 Tage).
+  SQL-Bedingung auf die eigenen Events der letzten 7 Tage (≥ 20) und Stichwort-Muster auf Meldungen (nur jünger als 4 Tage, auch KEV).
 - **LLM** (`llm.py`): `qwen2.5:7b` per Ollama auf oci-worker, englisch. Schreibt stündlich einen Lagebericht, benennt
   neue Kampagnen und erklärt neue Befehlsfolgen (`sessions.py`, je Runde max. 3, Anzeige im IP-Profil). Zugang per SSH auf den erzwungenen Befehl `deploy/sensor/llm-proxy.py`
   (Benutzer `attack-llm`). Der Proxy lehnt ab, solange oci-worker rendert (Last > 1 oder < 6 GB frei).

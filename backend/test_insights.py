@@ -189,6 +189,8 @@ class NewsTests(unittest.TestCase):
         self.assertEqual(len(items), 2)  # fremde Domain verworfen
         result = news.match({"BleepingComputer": items}, {"ssh": (100, 5), "mysql-ransom": (50, 3)}, now)
         self.assertEqual([r["topic"] for r in result], ["ssh"])  # allgemeine Ransomware ist keine DB-Erpressung
+        later = now + 4 * 86400  # Meldung vom 9. 11. ist dann älter als 4 Tage
+        self.assertEqual(news.match({"BleepingComputer": items}, {"ssh": (100, 5)}, later), [])
 
     def test_mastodon_masks_ips_and_links_locally(self):
         data = json.dumps([{"id": "1", "created_at": "2026-11-09T10:00:00Z", "account": {"acct": "a@infosec.exchange"},

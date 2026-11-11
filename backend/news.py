@@ -26,8 +26,7 @@ FEEDS = {  # Name -> (Format, URL, Abrufintervall s, erlaubte Link-Domain)
     "CISA KEV": ("kev", "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", 86400, "nvd.nist.gov"),
 }
 MAX_BYTES = 5 * 1024 * 1024
-NEWS_AGE = 14 * 86400
-KEV_AGE = 60 * 86400
+MAX_AGE = 4 * 86400  # nur aktuelle Meldungen, auch bei KEV
 MIN_EVENTS = 20
 PER_TOPIC = 3
 
@@ -109,7 +108,7 @@ def parse_kev(data, now):
     out = []
     for v in json.loads(data).get("vulnerabilities", []):
         date = _ts(v.get("dateAdded", "") + "T00:00:00+00:00")
-        if date and now - date <= KEV_AGE and re.fullmatch(r"CVE-\d{4}-\d{4,7}", v.get("cveID", "")):
+        if date and now - date <= MAX_AGE and re.fullmatch(r"CVE-\d{4}-\d{4,7}", v.get("cveID", "")):
             out.append({"title": f"{v['cveID']}: {v.get('vendorProject', '')} {v.get('product', '')} – {v.get('vulnerabilityName', '')}",
                         "url": f"https://nvd.nist.gov/vuln/detail/{v['cveID']}", "date": date, "text": v.get("shortDescription", "")})
     return out
@@ -159,10 +158,9 @@ def match(feeds, seen, now):
         rx, hits, titles = re.compile(pattern, re.I), [], set()
         for source, items in feeds.items():
             fmt = FEEDS.get(source, ("rss",))[0]
-            max_age = KEV_AGE if fmt == "kev" else NEWS_AGE
             for it in items:
                 haystack = it["title"] if fmt == "rss" else f"{it['title']} {it['text']}"
-                if now - it["date"] <= max_age and it["title"] not in titles and rx.search(haystack):
+                if now - it["date"] < MAX_AGE and it["title"] not in titles and rx.search(haystack):
                     titles.add(it["title"])
                     hits.append({"source": source, "title": it["title"], "url": it["url"], "date": it["date"]})
         if hits:
