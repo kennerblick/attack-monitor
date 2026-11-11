@@ -3,10 +3,11 @@ abarbeiten. Nichts wird ausgeführt; die Antworten kommen aus festen Tabellen. d
 nur, was der Honeypot als Malware-Sample sichert (samples.py lädt, honeypot.py speichert).
 """
 import re
-import shlex
+import shelltext
 
 MAX_COMMANDS = 25  # + Login bleibt unter der Flutbremse von 30 Events pro IP und Minute
 MAX_LINE = 4096
+MAX_DEPTH = 3  # sh -c, Funktionen und $(…) verschachteln höchstens so tief
 
 
 def _cpuinfo(cores, model):
@@ -60,7 +61,7 @@ SILENT = {"enable", "system", "shell", "sh", "bash", "linuxshell", "cd", "chmod"
 DOWNLOADERS = {"wget", "curl", "tftp", "ftpget"}
 FILTERS = {"grep", "wc", "head", "tail", "awk", "sort", "uniq"}
 APPLETS = SILENT | DOWNLOADERS | FILTERS | {"echo", "cat", "ls", "ps", "uname", "nproc", "id", "whoami", "hostname",
-                                            "which", "free", "uptime"}
+                                            "which", "free", "uptime", "printf", "set"}
 UNAME_ORDER = "snrvmpio"
 
 
@@ -126,63 +127,47 @@ def _one(words, profile=ROUTER):
     return "" if redirected or not text else text + "\r\n"
 
 
-def _filter(part, text):
-    """grep/wc/head/tail/awk/sort/uniq auf die Ausgabe der vorigen Stufe: Bots zählen so Kerne und RAM."""
+def _argv(stage):
     try:
-        argv = shlex.split(part)
-    except ValueError:
-        argv = part.split()
-    name, args = argv[0].rsplit("/", 1)[-1], argv[1:]
-    lines = [line for line in text.split("\r\n") if line]
-    flags = "".join(a[1:] for a in args if a.startswith("-") and not a[1:].isdigit())
-    plain = [a for a in args if not a.startswith("-")]
-    if name == "grep":
-        pattern = plain[0] if plain else ""
-        hit = lambda line: (pattern.lower() in line.lower()) if "i" in flags else (pattern in line)
-        lines = [line for line in lines if hit(line) != ("v" in flags)]
-        if "c" in flags:
-            lines = [str(len(lines))]
-    elif name == "wc":
-        lines = [str(len(lines))] if "l" in flags else [f"{len(lines)} {len(text.split())} {len(text)}"]
-    elif name in ("head", "tail"):
-        n = next((int(a[1:]) for a in args if a[1:].isdigit() and a.startswith("-")), None)
-        n = n or next((int(a) for a in plain if a.isdigit()), 10)
-        lines = lines[:n] if name == "head" else lines[-n:]
-    elif name == "awk":
-        lines = _awk(" ".join(plain), lines)
-    elif name == "sort":
-        lines = sorted(lines, reverse="r" in flags)
-    elif name == "uniq":
-        lines = [line for i, line in enumerate(lines) if i == 0 or lines[i - 1] != line]
-    return "".join(line + "\r\n" for line in lines)
+        return shelltext.words(stage)
+    except ValueError:  # offenes Anführungszeichen: so grob wie vorher
+        return stage.split()
 
 
-AWK = re.compile(r"^\s*(?:F?NR\s*==\s*(\d+)\s*)?\{\s*print\s*([^};]*);?\s*\}\s*$")
+def _command(argv, profile, env, depth):
+    """Shell-Eingebautes, das Bots zum Erkennen von Honeypots nutzen; sonst die festen Antworten aus _one."""
+    name = argv[0].rsplit("/", 1)[-1]
+    if name in ("sh", "bash", "ash", "dash") and "-c" in argv[:-1]:
+        i = argv.index("-c")
+        return respond(argv[i + 1], profile, {"args": argv[i + 3:], "funcs": env["funcs"]}, depth + 1) or ""
+    if name in env["funcs"]:
+        return respond(env["funcs"][name], profile, {"args": argv[1:], "funcs": env["funcs"]}, depth + 1) or ""
+    if name == "set" and argv[1:2] == ["--"]:
+        env["args"] = argv[2:]
+        return ""
+    if name == "printf":
+        return shelltext.printf(argv[1:])
+    if name in ("command", "type") and len(argv) > 2 and argv[1] == "-v":
+        argv = ["which"] + argv[2:]
+    return _one(argv, profile)
 
 
-def _awk(program, lines):
-    """Nur die Form, die Bots benutzen: [NR == n] {print $a, $b, …}."""
-    m = AWK.match(program)
-    if not m:
-        return lines
-    row, items = m.group(1), [i.strip() for i in m.group(2).split(",") if i.strip()] or ["$0"]
-    out = []
-    for nr, line in enumerate(lines, 1):
-        if row and nr != int(row):
-            continue
-        fields = line.split()
-        pick = lambda i: line if i == "$0" else fields[-1] if i == "$NF" and fields else \
-            (fields[int(i[1:]) - 1] if i[1:].isdigit() and 0 < int(i[1:]) <= len(fields) else "")
-        out.append(" ".join(pick(i) for i in items))
-    return out
-
-
-def _pipeline(part, profile):
+def _pipeline(part, profile, env, depth):
     out = ""
+    run = lambda cmd: respond(cmd, profile, env, depth + 1) or "" if depth < MAX_DEPTH else ""
     for i, stage in enumerate(s for s in _split(part) if s.strip()):
-        name = stage.split()[0].rsplit("/", 1)[-1]
-        out = _filter(stage, out) if i and name in FILTERS else _one(stage.split(), profile)
+        stage = shelltext.expand(stage, env["args"], run)
+        argv = _argv(stage)
+        if not argv:
+            continue
+        if i and argv[0].rsplit("/", 1)[-1] in FILTERS:
+            out = shelltext.filter_output(stage, out)
+        else:
+            out = _command(argv, profile, env, depth)
     return out
+
+
+FUNCTION = re.compile(r"(\w+)\s*\(\)\s*\{(.*?)\}\s*(?:;|$)", re.S)
 
 
 SEPARATORS = re.compile(r"""'[^']*'|"[^"]*"|(&&|\|\||;|\|)""")
@@ -213,7 +198,9 @@ def downloads(line):
     for words in _parts(line):
         name, args = words[0].rsplit("/", 1)[-1], [w.strip("'\"") for w in words[1:]]
         if name in ("wget", "curl"):
-            skip = {"-O", "-o", "--output", "--output-document", "-P", "-U", "--user-agent", "-H"}
+            # Optionen mit Argument; curl -O hat keins (Dateiname aus der URL), wget -O schon
+            skip = {"-o", "--output", "--output-document", "-P", "-U", "--user-agent", "-H", "-A", "-e", "-x",
+                    "-u", "--header"} | ({"-O"} if name == "wget" else set())
             urls += [a if "://" in a else "http://" + a for i, a in enumerate(args)
                      if not a.startswith("-") and (i == 0 or args[i - 1] not in skip) and ("/" in a or "." in a)]
         elif name == "tftp":
@@ -244,16 +231,27 @@ class Drops:
                 self.files.clear()
 
 
-def respond(line, profile=ROUTER):
-    """Ausgabe zu einer Befehlszeile; None bei exit/logout."""
+def respond(line, profile=ROUTER, env=None, depth=0):
+    """Ausgabe zu einer Befehlszeile; None bei exit/logout. env hält $1… und Funktionen über die Sitzung."""
+    env = env if env is not None else {"args": [], "funcs": {}}
+    if depth > MAX_DEPTH:
+        return ""
+
+    quoted = [m.span() for m in shelltext.QUOTED.finditer(line) if m.group(0)[0] in "'\""]
+
+    def define(m):  # f() { …; } merken, Aufruf läuft über _command; in Anführungszeichen gehört sie zu sh -c
+        if any(start < m.start() < end for start, end in quoted):
+            return m.group(0)
+        env["funcs"][m.group(1)] = m.group(2)
+        return ""
     out = []
-    for part in _split(line, pipes=False):
+    for part in _split(FUNCTION.sub(define, line), pipes=False):
         words = part.split()
         if not words:
             continue
         if words[0] in ("exit", "logout", "quit"):
             return None
-        out.append(_pipeline(part, profile))
+        out.append(_pipeline(part, profile, env, depth))
     return "".join(out)
 
 
@@ -278,13 +276,14 @@ class Lines:
 
 def run_shell(lines, send, on_command, profile=ROUTER):
     send(profile["banner"])
+    env = {"args": [], "funcs": {}}
     for _ in range(MAX_COMMANDS):
         send(profile["prompt"])
         line = lines.next()
         if line is None:
             return
         on_command(line)
-        out = respond(line, profile)
+        out = respond(line, profile, env)
         if out is None:
             return
         send(out)

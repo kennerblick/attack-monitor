@@ -10,7 +10,7 @@ from fakeshell import MAX_COMMANDS
 from honeypot import Honeypot, attempt, clean
 
 MAX_MESSAGE = 4096
-MAX_DISCARD = 1 << 20  # größere Nachrichten lesen, aber nur den Anfang behalten
+MAX_DISCARD = 1 << 20  # größere Nachrichten verwerfen
 SSL_REQUEST, GSS_REQUEST, PROTOCOL_3 = 80877103, 80877104, 196608
 VERSION = "16.4 (Debian 16.4-1.pgdg120+1)"
 PARAMS = {"server_version": VERSION.split()[0], "server_encoding": "UTF8", "client_encoding": "UTF8",
@@ -76,14 +76,14 @@ def _read(sock, n):
 
 
 def _read_body(sock, length):
-    """Nachrichteninhalt lesen; mehr als MAX_MESSAGE Bytes werden verworfen."""
+    """Nachrichteninhalt lesen (bis MAX_DISCARD, sonst Verbindungsabbruch)."""
     if not 0 <= length <= MAX_DISCARD:
         raise ConnectionError
     data, got = b"", 0
     while got < length:
         chunk = _read(sock, min(65536, length - got))
         got += len(chunk)
-        data += chunk[:MAX_MESSAGE - len(data)]
+        data += chunk  # ganz behalten (max. MAX_DISCARD): Programme kommen als Hex (lo_from_bytea)
     return data
 
 
@@ -136,9 +136,11 @@ class PostgresHoneypot(Honeypot):
                 query = clean(body.rstrip(b"\0"), MAX_MESSAGE)
                 if query:
                     self.command(ip, query)
+                    self.payloads(ip, body.decode("latin-1"))
                 sock.sendall((answer(query, user, db) if query else message(b"I")) + ready())
             elif kind == b"P":  # Extended Query: Parse(name, query, …) – nur mitschneiden
                 self.command(ip, clean(body.split(b"\0")[1], MAX_MESSAGE) or "")
+                self.payloads(ip, body.decode("latin-1"))
                 sock.sendall(message(b"1"))
             elif kind == b"B":
                 sock.sendall(message(b"2"))

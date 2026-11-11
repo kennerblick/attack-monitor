@@ -18,7 +18,7 @@ chmod -f g+r /var/lib/attack-monitor/samples/* 2>/dev/null || true  # Samples f�
 for f in /var/lib/attack-monitor/events.db{,-wal,-shm}; do [ -e "$f" ] && chgrp attack-monitor "$f" && chmod 660 "$f"; done
 [ -e /var/lib/attack-monitor/ssh_host_rsa_key ] && chown attack-honeypot:attack-monitor /var/lib/attack-monitor/ssh_host_rsa_key
 dpkg -s python3-paramiko >/dev/null 2>&1 || apt-get install -y python3-paramiko  # SSH-Honeypot
-install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail,intel,visits,sensors,trends,campaigns,llm,insights,sessions,news,alerts,honeypots,honeypot,honeypot_mysql,honeypot_postgres,honeypot_ssh,honeypot_ftp,honeypot_telnet,honeypot_php,fakeshell,samples}.py "$APP"/
+install -m 644 "$REPO"/backend/{server,parsers,store,stats,geo,tail,intel,visits,sensors,trends,campaigns,llm,insights,sessions,news,alerts,honeypots,honeypot,honeypot_mysql,honeypot_postgres,honeypot_ssh,honeypot_ftp,honeypot_telnet,honeypot_php,fakeshell,shelltext,samples}.py "$APP"/
 install -m 644 "$REPO"/deploy/{attack-monitor,attack-honeypots}.service /etc/systemd/system/
 systemctl daemon-reload
 # Außensensoren (sensors.py): eigener Schlüssel nur für export.py auf dem Sensor; Ziele in sensors.json

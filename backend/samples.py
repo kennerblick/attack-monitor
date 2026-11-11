@@ -4,10 +4,12 @@ nicht im Backup (Malware im Google Drive gefährdet den Account; die Metadaten s
 
 Downloads nur von öffentlichen IPv4-Adressen, sonst wäre der Honeypot ein Sprungbrett ins VPN/Homelab.
 """
+import base64
 import hashlib
 import http.client
 import ipaddress
 import os
+import re
 import socket
 import ssl
 import struct
@@ -48,6 +50,23 @@ def looks_executable(data):
     Samples. Kein lauffähiges ELF ist kleiner als MIN_ELF, kurze Skripte (wget …; sh …) zählen dagegen."""
     found = kind(data)
     return len(data) >= MIN_ELF if found.startswith("ELF") else found != "data" or len(data) >= 1024
+
+
+HEX = re.compile(r"(?:0x|unhex\(\s*'|decode\(\s*')([0-9a-fA-F]{256,})", re.I)
+BASE64 = re.compile(r"([A-Za-z0-9+/]{40,}={0,2})['\"]?\s*\|\s*base64\s+(?:-d|--decode|-di)\b")
+
+
+def embedded(text):
+    """Payloads, die Angreifer mitschicken statt sie zu laden: Hex in SQL (MySQL-UDF per INTO DUMPFILE,
+    Postgres lo_from_bytea/decode) und base64 in der Shell (echo … | base64 -d | sh). -> [(bytes, Art)]"""
+    found = [(bytes.fromhex(m.group(1)[:len(m.group(1)) // 2 * 2]), "hex") for m in HEX.finditer(text)]
+    for m in BASE64.finditer(text):
+        try:
+            found.append((base64.b64decode(m.group(1) + "=" * (-len(m.group(1)) % 4)), "base64"))
+        except ValueError:
+            pass
+    # base64 in der Shell ist fast immer ein Skript, auch ohne #!; Hex nur, wenn es ein Programm ist
+    return [(data, how) for data, how in found if looks_executable(data) or (how == "base64" and len(data) >= 32)]
 
 
 def _used():

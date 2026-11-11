@@ -5,14 +5,18 @@ Es gibt keine Datenbank: Antworten kommen aus festen Tabellen, alles andere beko
 Passwörter sieht er nicht: Clients schicken bei mysql_native_password nur einen Hash.
 """
 import os
+import re
 import struct
 
 from fakeshell import MAX_COMMANDS
 from honeypot import Honeypot, attempt, clean
 
 MAX_PACKET = 4096
-MAX_DISCARD = 1 << 20  # größere Pakete (z. B. UDF-Upload als Hex) lesen, aber nur den Anfang behalten
+MAX_DISCARD = 1 << 20  # größere Pakete verwerfen; bis dahin ganz lesen, UDF-Uploads kommen als Hex
 VERSION = b"5.5.5-10.11.6-MariaDB-0+deb12u1"
+VARIABLES = {"@@max_allowed_packet": "16777216", "@@version_compile_os": "debian-linux-gnu",
+             "@@version_compile_machine": "x86_64", "@@plugin_dir": "/usr/lib/mysql/plugin/",
+             "@@secure_file_priv": "", "@@datadir": "/var/lib/mysql/", "@@hostname": "web01"}
 # LONG_PASSWORD | FOUND_ROWS | LONG_FLAG | CONNECT_WITH_DB | PROTOCOL_41 | TRANSACTIONS | SECURE_CONNECTION
 # | PLUGIN_AUTH; bewusst ohne SSL, damit Clients das Login-Paket im Klartext senden
 CAPS = 0x0008A20F
@@ -57,6 +61,9 @@ def result(seq, column, rows):
 def answer(query, user, ip, db):
     """Feste Antwort auf typische Bot-Abfragen: (Spaltenname, Zeilen) oder None für OK."""
     q = " ".join(query.lower().split()).rstrip(";")
+    variable = re.fullmatch(r"select (@@[a-z_.]+)", q)
+    if variable and variable.group(1) in VARIABLES:  # UDF-Uploader prüfen Paketgröße, OS und Plugin-Pfad
+        return variable.group(1), [VARIABLES[variable.group(1)]]
     if "@@version_comment" in q:
         return "@@version_comment", ["Debian 12"]
     if "version()" in q or "@@version" in q:
@@ -101,7 +108,7 @@ def _read_packet(sock):
         if not chunk:
             break
         got += len(chunk)
-        data += chunk[:MAX_PACKET - len(data)]
+        data += chunk  # ganz behalten (max. MAX_DISCARD): UDF-Uploads schicken das Programm als Hex
     return head[3], data
 
 
@@ -130,6 +137,7 @@ class MySQLHoneypot(Honeypot):
                 self.command(ip, f"USE {text}")
             elif payload[0] == 0x03 and text:  # COM_QUERY
                 self.command(ip, text)
+                self.payloads(ip, payload[1:].decode("latin-1"))
                 reply = answer(text, user, ip, db)
                 sock.sendall(result(1, *reply) if reply else ok(1))
                 continue

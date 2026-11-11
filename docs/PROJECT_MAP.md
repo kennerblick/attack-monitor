@@ -31,13 +31,14 @@ Zwei Prozesse, eine SQLite-Datei (WAL, Gruppe `attack-monitor`): `server.py` als
 | `insights.py` | Worker: Trend, Kampagnen, LLM-Namen (max. 3/Runde), stündlicher Lagebericht; `payload()` für die API |
 | `stats.py` | Aggregation je Zeitfenster 1h/24h/7d, Hotspots, `byCountry`, Zeitleiste, Heatmap, Samples |
 | `geo.py` | ip-api-Batch-Worker, Serverstandort |
-| `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`/`command()`-Detailtexte (Benutzer, Passwort, Befehl), `shell()` beobachtet Fake-Shell-Sitzungen, `sample()` → `Malware-Sample` |
+| `honeypot.py` | Basis der Honeypots: Port belegen, Verbindungs-/Flutlimit, `attempt()`/`command()`-Detailtexte (Benutzer, Passwort, Befehl), `shell()` beobachtet Fake-Shell-Sitzungen, `payloads()` lädt Downloads und sichert Hex-/base64-Payloads (Shell und SQL), `sample()` → `Malware-Sample` |
 | `samples.py` | Malware-Samples: Ablage `<sha256>` (0400, Quota), Art (ELF-Arch/Skript/EXE), gedrosselte Downloads nur von öffentlichen IPs |
 | `honeypot_mysql.py` | MySQL :3306 (MariaDB-Begrüßung, Login annehmen, SQL mitschneiden, feste Antworten) → `MySQL-Probe` |
 | `honeypot_postgres.py` | Postgres :5432 (Klartext-Passwort anfordern, Login annehmen, SQL mitschneiden) → `Postgres-Probe` |
 | `honeypot_ssh.py` | SSH :22 via paramiko (Schlüssel abgelehnt, Passwort angenommen → Fake-Shell/Exec, nur Session-Kanäle; Uploads per `scp -t` und `cat >`) → `SSH-Probe` |
 | `honeypot_telnet.py` | Telnet :23 (Router-Login, IAC filtern, jede Anmeldung → Fake-Shell) → `Telnet-Probe` |
 | `honeypot_php.py` | PHP hinter nginx (127.0.0.1:8098, X-Real-IP): PHP 8.2.34 vortäuschen, WordPress-Login und Payloads mitschneiden → `PHP-Probe` |
+| `shelltext.py` | Shell-Syntax der Fake-Shell: Variablen/`$((…))`/`$(…)` expandieren, `printf`, Filter hinter Pipes (`grep`, `wc`, `awk` …) |
 | `fakeshell.py` | Fake-Shell: Profile `ROUTER` (Telnet) / `SERVER` (SSH), feste Antworten, `uname`-Flags, Pipes mit Filtern, Zeilenleser, Sitzungsschleife; Befehle als Event `Command “…”` (crit); `MAX_COMMANDS` gilt auch für SQL; `downloads()` (wget/curl/tftp-URLs), `Drops` (echo-Dropper) |
 | `honeypot_ftp.py` | FTP :21 (vsftpd-Banner, USER/PASS mitlesen, „530“) → `FTP-Probe` |
 | `visits.py` | Besucherstatistik aus `3lis.access.log` (Seitenaufruf + Browser-Beleg, Tages-Salt-Hash), `/api/visits` |

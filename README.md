@@ -43,7 +43,8 @@ ab. SSH (nur Passwort, Schlüssel werden abgelehnt) und Telnet nehmen jede Anmel
 führen in eine Fake-Shell (`backend/fakeshell.py`) mit festen Antworten: Telnet spielt einen ARM-BusyBox-Router
 (`busybox X` → „applet not found“ für Mirai), SSH einen Debian-x86-64-VPS mit 4 Kernen und 8 GB, damit Miner-Bots
 ihre Prüfung bestehen und nachladen. `uname` mit beliebigen Flags, einfache Pipes (`grep`, `wc`, `head`, `tail`,
-`awk '{print $n}'`, `sort`, `uniq`), `free`, `lscpu`, `df`, `which`; Downloads schlagen fehl. Jede Befehlszeile wird ein
+`awk '{print $n}'`, `sort`, `uniq`), `free`, `lscpu`, `df`, `which`; Shell-Syntax, mit der Bots Honeypots erkennen
+(`$$`, `$1`/`set --`, `$((…))`, `$(…)`, Funktionen, `sh -c`, `printf`; `backend/shelltext.py`). Downloads schlagen fehl. Jede Befehlszeile wird ein
 Event (Schwere kritisch, gekürzt auf 100 Zeichen), höchstens 25 je Sitzung, 20 s Timeout je Eingabe.
 SSH erlaubt nur Session-Kanäle, kein Port-Forwarding (sonst offener Proxy).
 - MySQL spielt MariaDB 10.11, nimmt jeden Login an und schneidet SQL-Abfragen mit (Event wie ein
@@ -80,6 +81,9 @@ sie es jede Minute erneut.
 SSH- und Telnet-Honeypot sichern, was Bots nachladen wollen (`backend/samples.py`, Event `Malware-Sample`):
 - Downloads aus der Fake-Shell (`wget`/`curl` http(s), `tftp`) lädt der Honeypot selbst nach: nur öffentliche
   IPv4-Ziele (kein Sprungbrett ins Homelab, DNS-Rebinding abgefangen), max. 10 MB, 60 Downloads/h, je URL 1×/h.
+- Mitgeschickte Payloads: `echo … | base64 -d | sh` (Skript wird Sample, seine Downloads werden geladen), Hex in SQL
+  (MySQL-UDF per `SELECT 0x7f45… INTO DUMPFILE`, Postgres `decode('…','hex')`), Shell-Befehle in SQL-Strings
+  (`COPY … FROM PROGRAM 'curl …'`). MySQL beantwortet dafür `@@max_allowed_packet`, `@@plugin_dir` u. a.
 - Uploads per `scp -t`, per `cat > datei` (Datei auf stdin) und per `echo -ne '\x7f…' > datei` (Dropper, gesichert bei Sitzungsende; ELF erst ab 128 B, kleinere sind Dropper-Tests).
 - Ablage unter `/var/lib/attack-monitor/samples/<sha256>` (0400, max. 2 GB), nie ausgeführt, nie ausgeliefert, nicht ins Backup.
   Die Seite zeigt nur Hash, Art (ELF-Architektur, Skript, EXE), Größe und Quelle, mit Link auf VirusTotal (nur der Hash).

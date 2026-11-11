@@ -71,6 +71,18 @@ class Honeypot:
         """Download, den ein Bot in der Fake-Shell anstößt, selbst ausführen (gedrosselt, nur öffentliche Ziele)."""
         samples.fetch(url, lambda data: self.sample(ip, data, url))
 
+    def payloads(self, ip, text):
+        """Downloads anstoßen und mitgeschickte Programme sichern, aus einer Shell-Zeile oder SQL-Abfrage. In SQL
+        stecken Shell-Befehle in Strings (COPY … FROM PROGRAM 'curl …', sys_exec('wget …')); base64-Skripte laden
+        oft selbst nach, daher auch deren Zeilen durchsuchen."""
+        lines = [text] + re.findall(r"'([^']{6,})'", text)
+        for data, how in samples.embedded(text):
+            self.sample(ip, data, f"{how}: {text[:60]}")
+            if how == "base64":
+                lines += data.decode("latin-1").splitlines()
+        for url in dict.fromkeys(u for line in lines for u in fakeshell.downloads(line)):
+            self.fetch(ip, url)
+
     def shell(self, ip, run):
         """Fake-Shell-Sitzung beobachten: run(on_line) läuft die Sitzung; jede Zeile wird protokolliert, angestoßene
         Downloads geladen, per echo geschriebene Programme am Ende (auch nach Abbruch) als Sample gesichert."""
@@ -78,8 +90,7 @@ class Honeypot:
 
         def on_line(line):
             self.command(ip, line)
-            for url in fakeshell.downloads(line):
-                self.fetch(ip, url)
+            self.payloads(ip, line)
             drops.feed(line)
         try:
             run(on_line)

