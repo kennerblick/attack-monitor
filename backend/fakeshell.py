@@ -167,7 +167,7 @@ def _pipeline(part, profile, env, depth):
     return out
 
 
-FUNCTION = re.compile(r"(\w+)\s*\(\)\s*\{(.*?)\}\s*(?:;|$)", re.S)
+FUNCTION = re.compile(r"(?<!\w)(\w++)\s*\(\)\s*\{(.*?)\}\s*(?:;|$)", re.S)
 
 
 SEPARATORS = re.compile(r"""'[^']*'|"[^"]*"|(&&|\|\||;|\|)""")

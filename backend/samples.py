@@ -53,7 +53,8 @@ def looks_executable(data):
 
 
 HEX = re.compile(r"(?:0x|unhex\(\s*'|decode\(\s*')([0-9a-fA-F]{256,})", re.I)
-BASE64 = re.compile(r"([A-Za-z0-9+/]{40,}={0,2})['\"]?\s*\|\s*base64\s+(?:-d|--decode|-di)\b")
+# Lookbehind + possessiv: jeder Zeichenlauf wird nur einmal geprüft (sonst quadratisch, 40 KB = 44 s CPU)
+BASE64 = re.compile(r"(?<![A-Za-z0-9+/])([A-Za-z0-9+/]{40,}+={0,2})['\"]?\s*\|\s*base64\s+(?:-d|--decode|-di)\b")
 
 
 def embedded(text):

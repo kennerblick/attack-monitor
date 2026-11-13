@@ -71,7 +71,7 @@ export async function openEvent(ev) {
   if (ev.lat != null) ctx.focus?.(ev.lat, ev.lon);
   show(view, `<span style="color:${t.color}">${esc(t.label)}</span> · ${time(ev.ts)}`, dl([
     ["Time", dateTime(ev.ts)], ["Type", `${esc(t.label)} · ${SEVERITY[ev.sev] || esc(ev.sev)}`], ["Source", esc(ev.src)], ["Sensor", sensorBadge(ev.sensor)],
-    ["Port", ev.port ? `${ev.port} ${service(ev.port)}` : null], ["Jail", esc(ev.jail)], ["Detail", esc(ev.detail)],
+    ["Port", ev.port ? `${esc(ev.port)} ${service(ev.port)}` : null], ["Jail", esc(ev.jail)], ["Detail", esc(ev.detail)],
     ["Analysis", sampleLink(ev.detail)],
   ]) + '<h3>Sender</h3><div id="ip-profile"><p class="empty">Loading IP profile …</p></div>');
   try {
@@ -100,7 +100,7 @@ function renderProfile(p, ev) {
       ["Activity", `${num(p.n)} events on ${p.days} day${p.days === 1 ? "" : "s"}`],
       ["First seen", dateTime(p.first)], ["Last seen", dateTime(p.last)],
       ["Types", chips(Object.entries(p.types), ([k, n]) => `<span style="color:${typeInfo(k).color}">${esc(typeInfo(k).label)}</span> ${num(n)}`)],
-      ["Ports", p.ports.length ? chips(p.ports, ([port, n]) => `${port} <small>${service(port)}</small> ${num(n)}`) : null],
+      ["Ports", p.ports.length ? chips(p.ports, ([port, n]) => `${esc(port)} <small>${service(port)}</small> ${num(n)}`) : null],
       ["Users", p.users.length ? chips(p.users, ([u, n]) => `${esc(u)} ${num(n)}`) : null],
       ["Passwords", p.passwords.length ? chips(p.passwords, ([pw, n]) => `${esc(pw)} ${num(n)}`) : null],
       ["Commands", p.commands.length ? chips(p.commands, ([c, n]) => `${esc(c)} ${num(n)}`) : null],

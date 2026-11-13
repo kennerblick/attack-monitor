@@ -53,8 +53,8 @@ export function renderLists(stats, onCountry, onPick) {
     r => onCountry(r.cc));
   bars($("asns"), stats.asnTop.slice(0, 8), r => ({ icon: '<span class="flag">🛰️</span>', name: `${esc(r.isp)}<small>${esc(r.asn)}</small>` }),
     r => onPick("asn", r.asn, `${esc(r.isp)} · ${esc(r.asn)}`));
-  bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${r.port}<small>${service(r.port)}</small>`, color: "#3987e5" }),
-    r => onPick("port", r.port, `Port ${r.port} ${service(r.port)}`));
+  bars($("ports"), stats.portsTop, r => ({ icon: '<span class="flag">🎯</span>', name: `${esc(r.port)}<small>${service(r.port)}</small>`, color: "#3987e5" }),
+    r => onPick("port", r.port, `Port ${esc(r.port)} ${service(r.port)}`));
   bars($("users"), stats.usersTop, r => ({
     icon: '<span class="flag">👤</span>', name: `${esc(r.user)}<small>${LOGIN_SOURCE[r.type]}</small>`,
     color: typeInfo(r.type).color,

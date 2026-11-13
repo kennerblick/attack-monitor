@@ -96,6 +96,8 @@ def make_handler(store, server_location, counter, sensor_list=(), llm_enabled=Fa
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             url = urlparse(self.path)
+            if ";" in self.path.split("?", 1)[0]:  # urlparse kürzt „/api/visits;x“ zu /api/visits, nginx schützt nur den Pfad
+                return self.send_error(404)
             q = parse_qs(url.query)
             try:
                 if url.path == "/api/feed":

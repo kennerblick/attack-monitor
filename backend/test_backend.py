@@ -142,6 +142,17 @@ class StoreStatsTests(unittest.TestCase):
         self.store.set_offset("sensor:oci", 0, 50)  # Sensor-DB neu angelegt (max < letzte ID)
         self.assertEqual(sensors.ingest(self.store, "oci", lines(0)), 1)
 
+    def test_sensor_rejects_markup_and_foreign_formats(self):
+        """Ein übernommener Sensor darf kein Markup (Typ, Port) und keine Nicht-IPs einschleusen."""
+        good = {"id": 1, "ts": time.time(), "ip": "9.9.9.9", "type": "SSH-Probe", "sev": "high", "src": "honeypot",
+                "port": 22, "detail": "x", "jail": None}
+        bad = [{"type": "<img src=x onerror=alert(1)>"}, {"port": "<b>22</b>"}, {"ip": "9.9.9.9<script>"},
+               {"sev": "evil"}, {"jail": "a b<"}, {"detail": None}]
+        lines = [json.dumps({"max": 10})] + [json.dumps({**good, **b, "id": i + 1}) for i, b in enumerate(bad)]
+        lines.append(json.dumps({**good, "id": 9}))
+        sensors.ingest(self.store, "oci", lines)
+        self.assertEqual(self.store.events_where("sensor", "oci", 0)[0], 1)
+
     def test_old_geo_rows_are_refetched(self):
         self.store.save_geo([("1.2.3.4", 1, 2, "DE", "Germany", "Berlin", "ISP", "AS1", time.time())])
         self.assertIn("1.2.3.4", self.store.ips_without_geo())
@@ -157,6 +168,24 @@ class StoreStatsTests(unittest.TestCase):
             self.store.events_where("1=1; --", "x", since)
         ip, prof = self.store.ip_profile(first_id)
         self.assertEqual((ip, prof["n"], prof["types"], prof["geo"]["hosting"]), ("1.2.3.4", 2, {"Port-Scan": 2}, 1))
+
+
+class ServerTests(unittest.TestCase):
+    def test_path_parameters_cannot_bypass_nginx_auth(self):
+        """nginx schützt nur /api/visits (Authelia); „/api/visits;x“ darf die API nicht als /api/visits beantworten."""
+        from http.server import ThreadingHTTPServer
+        import server
+        counter = type("C", (), {"summary": staticmethod(lambda: {})})()
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), server.make_handler(Store(":memory:"), {}, counter))
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            for path, status in (("/api/visits", 200), ("/api/visits;x", 404), ("/api/visits;", 404)):
+                conn = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=5)
+                conn.request("GET", path)
+                self.assertEqual(conn.getresponse().status, status, path)
+                conn.close()
+        finally:
+            srv.shutdown()
 
 
 class IntelTests(unittest.TestCase):
@@ -507,6 +536,10 @@ class FakeShellTests(unittest.TestCase):
         elf = b"\x7fELF\x01\x01" + b"\x00" * 200
         self.assertEqual(samples.embedded(f"SELECT lo_from_bytea(0, decode('{elf.hex()}', 'hex'))"), [(elf, "hex")])
         self.assertEqual(samples.embedded("SELECT 0x" + "00" * 300), [])  # keine Programmdatei
+        start = time.time()  # ReDoS: 1 MB base64-artiger Text (MySQL-Paketgrenze) muss in linearer Zeit durchgehen
+        samples.embedded("A" * (1 << 20))
+        fakeshell.FUNCTION.findall("a" * 100000)
+        self.assertLess(time.time() - start, 2)
 
     def test_payloads_find_downloads_in_strings_and_base64(self):
         pot, got = honeypot_telnet.TelnetHoneypot(Store(":memory:"), port=0, host="127.0.0.1"), []

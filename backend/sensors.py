@@ -7,6 +7,7 @@ Malware-Samples, die ein Sensor gespeichert hat, werden danach einzeln geholt un
 damit sie auf 3lis.de zur Analyse bereitliegen; der Hash wird geprüft, der Sensor ist nicht vertrauenswürdig.
 """
 import hashlib
+import ipaddress
 import json
 import os
 import re
@@ -21,6 +22,21 @@ KEY = os.environ.get("ATTACK_SENSOR_KEY", "/etc/attack-monitor/sensor_key")
 KNOWN_HOSTS = os.environ.get("ATTACK_SENSOR_KNOWN_HOSTS", "/var/lib/attack-monitor/sensor_known_hosts")
 INTERVAL = 60
 FIELDS = ("ts", "ip", "type", "sev", "src", "port", "detail", "jail")
+SEVERITIES = {"crit", "high", "med", "low"}
+LABEL = re.compile(r"[\w/.-]{1,40}")  # type, src, jail: Bezeichner, nie Markup
+
+
+def valid(ev):
+    """Sensor-Events strikt prüfen: ein übernommener Sensor soll weder Markup noch Fremdformate einschleusen."""
+    try:
+        ipaddress.IPv4Address(ev["ip"])
+    except (ValueError, TypeError):
+        return False
+    return (isinstance(ev["ts"], (int, float)) and ev["sev"] in SEVERITIES
+            and all(isinstance(ev[k], str) and LABEL.fullmatch(ev[k]) for k in ("type", "src"))
+            and (ev["jail"] is None or isinstance(ev["jail"], str) and LABEL.fullmatch(ev["jail"]))
+            and (ev["port"] is None or type(ev["port"]) is int and 0 <= ev["port"] <= 65535)
+            and isinstance(ev["detail"], str))
 
 
 def load():
@@ -48,9 +64,9 @@ def ingest(store, name, lines):
         if d["id"] <= last_id:
             continue
         ev = {k: d.get(k) for k in FIELDS}
-        if not isinstance(ev["ip"], str) or not isinstance(ev["ts"], (int, float)):
+        if not valid(ev):
             continue  # Daten vom Sensor sind nicht vertrauenswürdig
-        events.append({**ev, "sensor": name})
+        events.append({**ev, "detail": ev["detail"][:2000], "sensor": name})
         new_last = d["id"]
     store.add_events(events)
     if new_last != store.get_offset(key)[1]:

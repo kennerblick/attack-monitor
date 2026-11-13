@@ -17,7 +17,7 @@ export const TYPES = [
   { key: "Malware-Sample", label: "Malware sample", color: "#f2e85c" },
 ];
 const BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
-export const typeInfo = key => BY_KEY[key] || { key, label: key, color: "#6b7894" };
+export const typeInfo = key => BY_KEY[key] || { key, label: esc(key), color: "#6b7894" };  // unbekannt = unbekannte Herkunft
 
 export const SEVERITY = { crit: "critical", high: "high", med: "medium", low: "low" };
 
