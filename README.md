@@ -9,7 +9,7 @@ Login-Benutzernamen, Passwörter, Befehle, Pfade, Jails), eine Zeitleiste, eine 
 der Angreifer-Sitzungen im IP-Profil, siehe unten). Jeder Top-Listen-Eintrag
 öffnet die einzelnen Vorgänge; jeder Vorgang ein IP-Profil (Verlauf, Verhalten, rDNS, Hosting/Proxy/
 Mobilfunk, Einstufung bekannter Scan-Dienste und Clouds, Sperrstatus). Dazu kommen die Musikseite
-**Strudel Groove Machine** (6 Genres inkl. Paul-Kalkbrenner-Stil mit je 6–9 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen, eigene Samples aus dem Browser oder per Sample-Bank-URL), die
+**Strudel Groove Machine** (7 Genres inkl. Paul-Kalkbrenner- und Jean-Michel-Jarre-Stil mit je 6–9 Varianten/Subgenres und 12 genre-eigenen Spuren, Live-FX in Echtzeit, Live-Code-Ansicht mit Markierung der gerade klingenden Stellen, eigene Samples aus dem Browser oder per Sample-Bank-URL), die
 Übersicht der Lernseiten unter `/lernen/` sowie Impressum und Datenschutz.
 
 ## Schnellstart

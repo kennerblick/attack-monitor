@@ -7,8 +7,9 @@ import dnb from "./dnb.js";
 import kalkbrenner from "./kalkbrenner.js";
 import synthwave from "./synthwave.js";
 import ambient from "./ambient.js";
+import jarre from "./jarre.js";
 
-export const GENRES = [techno, kalkbrenner, house, dnb, synthwave, ambient];
+export const GENRES = [techno, kalkbrenner, house, dnb, synthwave, jarre, ambient];
 export const KEYS = ["C", "D", "E", "F", "G", "A", "B"];
 // Tasten für die Spuren 1–12 (zwei Reihen wie auf einem Pad-Controller)
 export const PAD_KEYS = ["q", "w", "e", "r", "t", "z", "a", "s", "d", "f", "g", "h"];
