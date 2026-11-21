@@ -28,7 +28,7 @@ function displayFx(s) {
     m.space ? `.room(${(m.space / 100 * 0.9).toFixed(2)}).roomsize(${(1 + m.space / 25).toFixed(1)})` : "",
     m.echo ? `.delay(${(m.echo / 100 * 0.7).toFixed(2)}).delaytime(${(60 / s.bpm * 0.75).toFixed(3)}).delayfeedback(.45)` : "",
     m.drive ? `.shape(${(m.drive / 100 * 0.7).toFixed(2)})` : "",
-    `.postgain(${(m.volume / 100 * 1.1).toFixed(2)})`,
+    `.postgain(${(m.volume / 100 * 0.8).toFixed(2)})`,
   ].filter(Boolean);
 }
 

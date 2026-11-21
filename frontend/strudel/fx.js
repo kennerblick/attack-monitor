@@ -27,10 +27,14 @@ export function createFx(state) {
     if (m.filter < -2) { o.cutoff = Math.min(v.cutoff ?? 20000, lowpassHz(m.filter)); o.resonance = max(v.resonance, 5); }
     if (m.filter > 2) { o.hcutoff = max(v.hcutoff, highpassHz(m.filter)); o.hresonance = max(v.hresonance, 5); }
     const space = held.wash ? 1 : m.space / 100;
-    if (space) { o.room = max(v.room, space * 0.9); o.roomsize = max(v.roomsize, held.wash ? 10 : 1 + space * 4); }
+    if (space) o.room = max(v.room, space * 0.9);
+    // superdough hat einen Hall und ein Echo je Orbit. Wechseln roomsize oder delaytime von Ereignis zu Ereignis
+    // (jede Spur bringt eigene Werte mit), rechnet es die Hall-Impulsantwort jedes Mal neu (Ruckler) bzw. springt
+    // die Verzögerungszeit (Knackser). Daher je Zustand ein einheitlicher Wert für alle Spuren.
+    if (o.room) o.roomsize = held.wash ? 10 : space ? 1 + space * 4 : 3;
     const echo = held.echo ? 1 : m.echo / 100;
-    if (echo) {
-      o.delay = max(v.delay, echo * (held.echo ? 0.9 : 0.7));
+    if (echo) o.delay = max(v.delay, echo * (held.echo ? 0.9 : 0.7));
+    if (o.delay) {
       o.delaytime = (60 / state.bpm) * 0.75;
       o.delayfeedback = held.echo ? 0.8 : 0.45;
     }
@@ -38,7 +42,7 @@ export function createFx(state) {
     if (drive) o.shape = max(v.shape, drive);
     if (held.phaser) { o.phaserrate = 0.5; o.phaserdepth = 0.9; }
     if (held.crush) { o.crush = 4; o.coarse = 6; }
-    o.postgain = (v.postgain ?? 1) * (m.volume / 100) * 1.1;
+    o.postgain = (v.postgain ?? 1) * (m.volume / 100) * 0.8; // Reserve: 6–8 Spuren summiert übersteuerten bei 1.1
     return o;
   }
 
